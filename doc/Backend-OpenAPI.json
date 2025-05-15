@@ -1,0 +1,226 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "OTUS Social Network API",
+    "description": "API для социальной сети, разработанной в рамках курса OTUS Highload Load Architect",
+    "version": "1.0"
+  },
+  "servers": [
+    {
+      "url": "https://{domain}/api/{apiVersion}/",
+      "variables": {
+        "domain": {
+          "description": "Домен",
+          "default": "localhost",
+          "enum": [
+            "localhost",
+            "social.katargin.net"
+          ]
+        },
+        "apiVersion": {
+          "default": "v1",
+          "enum": [
+            "v1"
+          ]
+        }
+      },
+      "description": "API сервер"
+    }
+  ],
+  "paths": {
+    "/user/register": {
+      "post": {
+        "summary": "Регистрация пользователя",
+        "description": "Регистрация нового пользователя в системе",
+        "operationId": "registerUser",
+        "tags": [
+          "user"
+        ],
+        "requestBody": {
+          "$ref": "#/components/schemas/RegisterUserRequest"
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/schemas/RegisterUserResponse"
+          }
+        }
+      }
+    },
+    "/user/get/{userId}": {
+      "get": {
+        "summary": "Получение информации о пользователе",
+        "description": "Получение информации о пользователе по его ID",
+        "operationId": "getUser",
+        "tags": [
+          "user"
+        ],
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "description": "ID пользователя",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/schemas/GetUserResponse"
+          }
+        }
+      }
+    },
+    "/login": {
+      "post": {
+        "summary": "Авторизация пользователя",
+        "description": "Авторизация пользователя в системе",
+        "operationId": "loginUser",
+        "tags": [
+          "user"
+        ],
+        "requestBody": {
+          "$ref": "#/components/schemas/LoginUserRequest"
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/schemas/LoginUserResponse"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "RegisterUserRequest": {
+        "type": "object",
+        "properties": {
+          "nickname": {
+            "type": "string",
+            "description": "Уникальный никнейм пользователя",
+            "required": true
+          },
+          "password": {
+            "type": "string",
+            "description": "Пароль пользователя",
+            "required": true
+          },
+          "first_name": {
+            "type": "string",
+            "description": "Имя пользователя"
+          },
+          "last_name": {
+            "type": "string",
+            "description": "Фамилия пользователя"
+          },
+          "birth_date": {
+            "type": "string",
+            "description": "Дата рождения",
+            "format": "date",
+            "required": true
+          },
+          "sex": {
+            "description": "Пол пользователя",
+            "enum": [
+              "man",
+              "woman"
+            ],
+            "required": true
+          },
+          "interests": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Интересы пользователя"
+          },
+          "city": {
+            "type": "string",
+            "description": "Город проживания"
+          }
+        }
+      },
+      "RegisterUserResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "Статус регистрации",
+            "enum": [
+              "idle",
+              "success",
+              "error"
+            ]
+          },
+          "userId": {
+            "type": "string",
+            "description": "ID пользователя"
+          }
+        }
+      },
+      "LoginUserRequest": {
+        "type": "object",
+        "properties": {
+          "nickname": {
+            "type": "string",
+            "description": "Уникальный никнейм пользователя",
+            "required": true
+          },
+          "password": {
+            "type": "string",
+            "description": "Пароль пользователя",
+            "required": true
+          }
+        }
+      },
+      "LoginUserResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "Статус авторизации",
+            "enum": [
+              "success",
+              "error"
+            ]
+          },
+          "userId": {
+            "type": "string",
+            "description": "ID пользователя"
+          },
+          "token": {
+            "type": "string",
+            "description": "Токен авторизации"
+          }
+        }
+      },
+      "GetUserResponse": {
+        "type": "object",
+        "properties": {
+          "nickname": {
+            "type": "string",
+            "description": "Уникальный никнейм пользователя"
+          },
+          "first_name": {
+            "type": "string",
+            "description": "Имя пользователя"
+          },
+          "last_name": {
+            "type": "string",
+            "description": "Фамилия пользователя"
+          },
+          "birth_date": {
+            "type": "string",
+            "description": "Дата рождения",
+            "format": "date"
+          },
+          "city": {
+            "type": "string",
+            "description": "Город проживания"
+          }
+        }
+      }
+    }
+  }
+}
