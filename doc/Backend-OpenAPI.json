@@ -123,8 +123,8 @@
           "sex": {
             "description": "Пол пользователя",
             "enum": [
-              "man",
-              "woman"
+              "male",
+              "female"
             ],
             "required": true
           },
