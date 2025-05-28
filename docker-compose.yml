@@ -1,0 +1,51 @@
+services:
+  postgres:
+    image: postgres:14.4
+    ports:
+#    TODO: удалить после тестов
+      - "5433:5432"
+    environment:
+      - POSTGRES_PASSWORD=socialTests
+      - POSTGRES_DB=socialTests
+      - POSTGRES_USER=socialTests
+    volumes:
+      - db-data:/var/lib/postgresql/data
+      - ./etc/schema.sql:/docker-entrypoint-initdb.d/00_init_schema.sql
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U socialTests" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - otus
+
+  nginx:
+    image: nginx:1.23.4
+    ports:
+      - "8180:80"
+    volumes:
+      - ./etc/app.conf:/etc/nginx/conf.d/app.conf
+    depends_on:
+      - backend
+    networks:
+      - otus
+
+  backend:
+    build:
+      context: ./src
+      dockerfile: Dockerfile
+    volumes:
+      - ./etc/app.yaml:/app/config.yaml
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+    networks:
+      - otus
+
+networks:
+  otus:
+    driver: bridge
+
+volumes:
+  db-data:
