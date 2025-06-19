@@ -3,7 +3,7 @@ CREATE TYPE sex AS ENUM ('male', 'female');
 CREATE TABLE users
 (
     id            SERIAL PRIMARY KEY,
-    username      VARCHAR(60)  NOT NULL UNIQUE,
+    nickname      VARCHAR(60)  NOT NULL UNIQUE,
     first_name    VARCHAR(255),
     last_name     VARCHAR(255),
     sex           sex,

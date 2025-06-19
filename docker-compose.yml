@@ -1,47 +1,48 @@
 services:
   postgres:
-    image: postgres:14.4
+    image: postgres:17
     ports:
-#    TODO: удалить после тестов
-      - "5433:5432"
+      - "127.0.0.1:5432:5432"
     environment:
-      - POSTGRES_PASSWORD=socialTests
-      - POSTGRES_DB=socialTests
-      - POSTGRES_USER=socialTests
+      - POSTGRES_DB=app_db
+      - POSTGRES_USER=app_user
+      - POSTGRES_PASSWORD=app_password
     volumes:
       - db-data:/var/lib/postgresql/data
       - ./etc/schema.sql:/docker-entrypoint-initdb.d/00_init_schema.sql
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U socialTests" ]
+      test: [ "CMD-SHELL", "pg_isready -U app_user app_db" ]
       interval: 5s
       timeout: 5s
       retries: 5
     networks:
       - otus
 
-  nginx:
-    image: nginx:1.23.4
-    ports:
-      - "8180:80"
-    volumes:
-      - ./etc/app.conf:/etc/nginx/conf.d/app.conf
-    depends_on:
-      - backend
-    networks:
-      - otus
+#  nginx:
+#    image: nginx:1.23.4
+#    ports:
+#      - "8180:80"
+#    volumes:
+#      - ./etc/app.conf:/etc/nginx/conf.d/app.conf
+#    depends_on:
+#      - backend
+#    networks:
+#      - otus
 
-  backend:
-    build:
-      context: ./src
-      dockerfile: Dockerfile
-    volumes:
-      - ./etc/app.yaml:/app/config.yaml
-    ports:
-      - "8080:8080"
-    depends_on:
-      - postgres
-    networks:
-      - otus
+#  backend:
+#    build:
+#      context: ./src
+#      dockerfile: Dockerfile
+#    environment:
+#      - GIN_MODE=release
+#    volumes:
+#      - ./etc/app.yaml:/app/config.yaml
+#    ports:
+#      - "8080:8080"
+#    depends_on:
+#      - postgres
+#    networks:
+#      - otus
 
 networks:
   otus:
