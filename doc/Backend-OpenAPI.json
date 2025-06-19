@@ -28,13 +28,13 @@
     }
   ],
   "paths": {
-    "/user/register": {
+    "/auth/register": {
       "post": {
         "summary": "Регистрация пользователя",
         "description": "Регистрация нового пользователя в системе",
         "operationId": "registerUser",
         "tags": [
-          "user"
+          "auth"
         ],
         "requestBody": {
           "$ref": "#/components/schemas/RegisterUserRequest"
@@ -42,6 +42,39 @@
         "responses": {
           "200": {
             "$ref": "#/components/schemas/RegisterUserResponse"
+          }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "summary": "Авторизация пользователя",
+        "description": "Авторизация пользователя в системе",
+        "operationId": "loginUser",
+        "tags": [
+          "auth"
+        ],
+        "requestBody": {
+          "$ref": "#/components/schemas/LoginUserRequest"
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/schemas/LoginUserResponse"
+          }
+        }
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "summary": "Выход пользователя",
+        "description": "Выход пользователя из системы",
+        "operationId": "logoutUser",
+        "tags": [
+          "auth"
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/schemas/LogoutUserResponse"
           }
         }
       }
@@ -71,24 +104,6 @@
           }
         }
       }
-    },
-    "/login": {
-      "post": {
-        "summary": "Авторизация пользователя",
-        "description": "Авторизация пользователя в системе",
-        "operationId": "loginUser",
-        "tags": [
-          "user"
-        ],
-        "requestBody": {
-          "$ref": "#/components/schemas/LoginUserRequest"
-        },
-        "responses": {
-          "200": {
-            "$ref": "#/components/schemas/LoginUserResponse"
-          }
-        }
-      }
     }
   },
   "components": {
@@ -114,7 +129,7 @@
             "type": "string",
             "description": "Фамилия пользователя"
           },
-          "birth_date": {
+          "birthday": {
             "type": "string",
             "description": "Дата рождения",
             "format": "date",
@@ -185,7 +200,7 @@
               "error"
             ]
           },
-          "userId": {
+          "user_id": {
             "type": "string",
             "description": "ID пользователя"
           },
@@ -195,6 +210,18 @@
           }
         }
       },
+      "LogoutUserResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "Статус авторизации",
+            "enum": [
+              "success",
+              "error"
+            ]
+          }}
+        },
       "GetUserResponse": {
         "type": "object",
         "properties": {
