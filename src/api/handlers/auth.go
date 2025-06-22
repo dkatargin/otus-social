@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"github.com/gin-gonic/gin"
-	"log"
 	"net/http"
 	"social/models"
 	"social/services"
@@ -62,8 +61,6 @@ func Register(c *gin.Context) {
 		City:      registerRequest.City,
 	}
 
-	log.Println(newUser)
-
 	if !registerRequest.Birthday.IsZero() {
 		newUser.Birthday = registerRequest.Birthday
 	}
@@ -115,10 +112,8 @@ func Login(c *gin.Context) {
 	}
 
 	userHandler := services.UserHandler{
-		DbModel: &models.User{
-			Nickname: loginRequest.Nickname,
-			Password: loginRequest.Password,
-		},
+		Nickname: &loginRequest.Nickname,
+		Password: &loginRequest.Password,
 	}
 
 	token, err := userHandler.Login()
@@ -133,7 +128,7 @@ func Login(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": "Login successful",
 		"token":    token,
-		"nickname": userHandler.DbModel.Nickname})
+		"nickname": userHandler.Nickname})
 }
 
 func Logout(c *gin.Context) {

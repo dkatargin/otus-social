@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"golang.org/x/crypto/argon2"
-	"log"
 	"social/db"
 	"social/models"
 	"strings"
@@ -31,41 +30,31 @@ type UserHandler struct {
 
 func (h *UserHandler) Register() (userId *int64, err error) {
 	var alreadyExists int64
-	log.Println("Registering user with nickname:", *h.Nickname, h.DbModel)
 	if h.DbModel == nil || h.DbModel.Password == "" {
 		return nil, errors.New("nickname is empty")
 	}
-	log.Println("User already exists:", *h.Nickname)
 	// Проверяем, существует ли пользователь с таким никнеймом
 	err = db.ORM.Model(&models.User{}).Where("nickname = ?", *h.Nickname).Count(&alreadyExists).Error
 	if err != nil {
-		log.Println("Error checking if user exists:", err)
 		return nil, err
 	}
-	log.Println("User already exists:", *h.Nickname)
 	if alreadyExists > 0 {
 		return nil, errors.New("user already exists")
 	}
 
-	log.Println("Registering user:", *h.Nickname)
 	salt := make([]byte, 16)
 	if _, err = rand.Read(salt); err != nil {
-		log.Println("Error generating salt:", err)
 		return nil, err
 	}
 
-	log.Println("Generating salt:", hex.EncodeToString(salt))
 	hash := argon2.IDKey([]byte(h.DbModel.Password), salt, 1, 64*1024, 4, 32)
 	passwordHash := hex.EncodeToString(salt) + "$" + hex.EncodeToString(hash)
 	h.DbModel.Password = passwordHash
 
-	log.Println("Registering user:", h.DbModel.Nickname)
 	trx := db.ORM.Model(&models.User{}).Create(&h.DbModel)
 	if trx.Error != nil {
-		log.Println(trx.Error)
 		return nil, trx.Error
 	}
-	log.Println(err)
 	return &h.DbModel.ID, err
 }
 
@@ -86,7 +75,7 @@ func (h *UserHandler) CheckToken() (err error) {
 func (h *UserHandler) Login() (token string, err error) {
 	// Получаем пользователя из БД
 	var storedUser *models.User
-	err = db.ORM.Model(&models.User{}).Where("nickname = ?", h.DbModel.Nickname).First(&storedUser).Error
+	err = db.ORM.Model(&models.User{}).Where("nickname = ?", h.Nickname).First(&storedUser).Error
 	if err != nil {
 		return "", errors.New("invalid nickname")
 	}
@@ -100,7 +89,7 @@ func (h *UserHandler) Login() (token string, err error) {
 		return "", err
 	}
 	storedHash := parts[1]
-	hash := argon2.IDKey([]byte(h.DbModel.Password), storedSalt, 1, 64*1024, 4, 32)
+	hash := argon2.IDKey([]byte(*h.Password), storedSalt, 1, 64*1024, 4, 32)
 	if hex.EncodeToString(hash) != storedHash {
 		return "", errors.New("invalid password")
 	}
@@ -121,7 +110,9 @@ func (h *UserHandler) Login() (token string, err error) {
 }
 
 func (h *UserHandler) Logout() (err error) {
-	err = db.ORM.Debug().Model(&models.UserTokens{}).Model(&models.User{}).Joins("LEFT JOIN users ON users.id=user_tokens.user_id").Where("users.nickname = ?", h.Nickname).Delete(&models.UserTokens{}).Error
+	var userId int64
+	db.ORM.Model(&models.User{}).Select("id").Where("nickname = ?", h.Nickname).First(&userId)
+	err = db.ORM.Table("user_tokens").Where("user_id = ?", userId).Delete(&models.UserTokens{}).Error
 	if err != nil {
 		return err
 	}
