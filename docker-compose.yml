@@ -1,6 +1,7 @@
 services:
   postgres:
     image: postgres:17
+    restart: unless-stopped
     ports:
       - "127.0.0.1:5432:5432"
     environment:
@@ -9,7 +10,12 @@ services:
       - POSTGRES_PASSWORD=app_password
     volumes:
       - db-data:/var/lib/postgresql/data
+      - ./etc/postgresql.conf.example:/etc/postgresql/postgresql.conf
       - ./etc/schema.sql:/docker-entrypoint-initdb.d/00_init_schema.sql
+    command:
+      - postgres
+      - -c
+      - config_file=/etc/postgresql/postgresql.conf
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U app_user app_db" ]
       interval: 5s
