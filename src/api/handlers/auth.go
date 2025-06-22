@@ -31,6 +31,16 @@ type RegisterRequest struct {
 	City      string    `json:"city" binding:"required"`
 }
 
+type TokenRefreshRequest struct {
+	Nickname string `json:"nickname" binding:"required"`
+	Token    string `json:"token" binding:"required"`
+}
+
+type LogoutRequest struct {
+	Nickname string `json:"nickname" binding:"required"`
+	Token    string `json:"token" binding:"required"`
+}
+
 type LogoutResponse struct {
 	Status string `json:"status"`
 }
@@ -104,11 +114,51 @@ func Login(c *gin.Context) {
 		return
 	}
 
-	// TODO: добавить логику
-	c.JSON(http.StatusOK, gin.H{"message": "Login successful"})
+	userHandler := services.UserHandler{
+		DbModel: &models.User{
+			Nickname: loginRequest.Nickname,
+			Password: loginRequest.Password,
+		},
+	}
+
+	token, err := userHandler.Login()
+	if err != nil {
+		if err.Error() == "invalid nickname" || err.Error() == "invalid password" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Login successful",
+		"token":    token,
+		"nickname": userHandler.DbModel.Nickname})
 }
 
 func Logout(c *gin.Context) {
-	// TODO: добавить логику
-	c.JSON(http.StatusOK, gin.H{"message": "Login successful"})
+	var logoutRequest LogoutRequest
+	if err := c.ShouldBindJSON(&logoutRequest); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
+
+	userHandler := services.UserHandler{
+		Nickname: &logoutRequest.Nickname,
+		Token:    &logoutRequest.Token,
+	}
+	err := userHandler.Logout()
+	if err != nil {
+		if err.Error() == "token is empty" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Token is empty"})
+			return
+		}
+		if err.Error() == "user not found" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "User not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Logout successful"})
 }

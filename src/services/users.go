@@ -86,14 +86,14 @@ func (h *UserHandler) CheckToken() (err error) {
 func (h *UserHandler) Login() (token string, err error) {
 	// Получаем пользователя из БД
 	var storedUser *models.User
-	err = db.ORM.Model(&models.User{}).Where("user_id = ?", h.DbModel.ID).First(&storedUser).Error
+	err = db.ORM.Model(&models.User{}).Where("nickname = ?", h.DbModel.Nickname).First(&storedUser).Error
 	if err != nil {
-		return "", err
+		return "", errors.New("invalid nickname")
 	}
 	// Проверяем пароль
 	parts := strings.Split(storedUser.Password, "$")
 	if len(parts) != 2 {
-		return "", errors.New("invalid Password format")
+		return "", errors.New("invalid password format")
 	}
 	storedSalt, err := hex.DecodeString(parts[0])
 	if err != nil {
@@ -102,7 +102,7 @@ func (h *UserHandler) Login() (token string, err error) {
 	storedHash := parts[1]
 	hash := argon2.IDKey([]byte(h.DbModel.Password), storedSalt, 1, 64*1024, 4, 32)
 	if hex.EncodeToString(hash) != storedHash {
-		return "", errors.New("invalid Password")
+		return "", errors.New("invalid password")
 	}
 
 	// Удаляем старые токены (если они есть)
@@ -113,16 +113,15 @@ func (h *UserHandler) Login() (token string, err error) {
 		return "", err
 	}
 	token = hex.EncodeToString(tokenBytes)
-
-	err = db.ORM.Model(&models.UserTokens{}).Create(models.UserTokens{
-		UserID: h.DbModel.ID,
+	err = db.ORM.Model(&models.UserTokens{}).Create(&models.UserTokens{
+		UserID: storedUser.ID,
 		Token:  token,
 	}).Error
-	return "", err
+	return token, err
 }
 
 func (h *UserHandler) Logout() (err error) {
-	err = db.ORM.Model(&models.UserTokens{}).Where("user_id = ?", h.DbModel.ID).Delete(&models.UserTokens{}).Error
+	err = db.ORM.Debug().Model(&models.UserTokens{}).Model(&models.User{}).Joins("LEFT JOIN users ON users.id=user_tokens.user_id").Where("users.nickname = ?", h.Nickname).Delete(&models.UserTokens{}).Error
 	if err != nil {
 		return err
 	}
