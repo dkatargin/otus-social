@@ -11,7 +11,7 @@ func PublicApi(router *gin.Engine) *gin.RouterGroup {
 		publicEndpoints.POST("auth/register", handlers.Register)
 		publicEndpoints.POST("auth/login", handlers.Login)
 		publicEndpoints.POST("auth/logout", handlers.Logout)
-		publicEndpoints.GET("user/search", handlers.UserSearch)
+		publicEndpoints.GET("users/search", handlers.UserSearch)
 	}
 
 	return publicEndpoints

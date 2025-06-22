@@ -1,0 +1,8 @@
+[project]
+name = "toolbox"
+version = "0.1.0"
+description = "Some useful tools for project"
+requires-python = ">=3.13"
+dependencies = [
+    "matplotlib>=3.10.3",
+]

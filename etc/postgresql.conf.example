@@ -137,9 +137,9 @@ shared_buffers = 4GB			# min 128kB
 					# (change requires restart)
 # Caution: it is not advisable to set max_prepared_transactions nonzero unless
 # you actively intend to use prepared transactions.
-work_mem = 4MB				# min 64kB
+work_mem = 64MB				# min 64kB
 #hash_mem_multiplier = 2.0		# 1-1000.0 multiplier on hash table work_mem
-maintenance_work_mem = 128MB		# min 64kB
+maintenance_work_mem = 512MB		# min 64kB
 #autovacuum_work_mem = -1		# min 64kB, or -1 to use maintenance_work_mem
 #logical_decoding_work_mem = 64MB	# min 64kB
 #max_stack_depth = 2MB			# min 100kB
@@ -204,10 +204,10 @@ maintenance_work_mem = 128MB		# min 64kB
 #effective_io_concurrency = 1		# 1-1000; 0 disables prefetching
 #maintenance_io_concurrency = 10	# 1-1000; 0 disables prefetching
 #io_combine_limit = 128kB		# usually 1-32 blocks (depends on OS)
-max_worker_processes = 8		# (change requires restart)
-max_parallel_workers_per_gather = 4	# limited by max_parallel_workers
+max_worker_processes = 100		# (change requires restart)
+max_parallel_workers_per_gather = 8	# limited by max_parallel_workers
 #max_parallel_maintenance_workers = 2	# limited by max_parallel_workers
-#max_parallel_workers = 8		# number of max_worker_processes that
+max_parallel_workers = 100	# number of max_worker_processes that
 					# can be used in parallel operations
 #parallel_leader_participation = on
 
@@ -223,7 +223,7 @@ wal_level = minimal			# minimal, replica, or logical
 #fsync = on				# flush data to disk for crash safety
 					# (turning this off can cause
 					# unrecoverable data corruption)
-#synchronous_commit = on		# synchronization level;
+synchronous_commit = off		# synchronization level;
 					# off, local, remote_write, remote_apply, or on
 #wal_sync_method = fsync		# the default is the first option
 					# supported by the operating system:
@@ -241,7 +241,7 @@ wal_level = minimal			# minimal, replica, or logical
 #wal_recycle = on			# recycle WAL files
 wal_buffers = 16MB			# min 32kB, -1 sets based on shared_buffers
 					# (change requires restart)
-wal_writer_delay = 10ms		# 1-10000 milliseconds
+wal_writer_delay = 1000ms		# 1-10000 milliseconds
 #wal_writer_flush_after = 1MB		# measured in pages, 0 disables
 #wal_skip_threshold = 2MB
 

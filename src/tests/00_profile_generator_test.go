@@ -24,8 +24,8 @@ type RegisterRequest struct {
 }
 
 func TestProfileGenerator(t *testing.T) {
-	const total = 1000000
-	const workers = 2 // количество одновременных запросов
+	const total = 800000
+	const workers = 5 // количество одновременных запросов
 	var wg sync.WaitGroup
 	sem := make(chan struct{}, workers)
 
@@ -48,8 +48,7 @@ func TestProfileGenerator(t *testing.T) {
 				City:     gofakeit.City(),
 			}
 			body, _ := json.Marshal(req)
-
-			resp, err := http.Post("http://localhost:8080/api/v1/auth/register", "application/json", bytes.NewBuffer(body))
+			resp, err := http.Post(fmt.Sprintf("%s/auth/register", ApiBaseUrl), "application/json", bytes.NewBuffer(body))
 
 			if err != nil {
 				var response map[string]interface{}
