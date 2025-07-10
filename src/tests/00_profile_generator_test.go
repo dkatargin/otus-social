@@ -64,10 +64,6 @@ func TestProfileGenerator(t *testing.T) {
 				t.Errorf("Request failed with error: %d", resp.StatusCode)
 				return
 			}
-			if err != nil {
-				t.Errorf("Failed to send request %d: %v", i, err)
-				return
-			}
 
 		}(i)
 	}
