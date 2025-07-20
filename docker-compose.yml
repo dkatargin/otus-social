@@ -23,7 +23,7 @@ services:
       retries: 5
     networks:
       - otus
-  postgres-slave:
+  postgres-slave-1:
     image: postgres:17
     restart: unless-stopped
     ports:
@@ -33,7 +33,7 @@ services:
       - POSTGRES_USER=app_user
       - POSTGRES_PASSWORD=app_password
     volumes:
-      - db-data:/var/lib/postgresql/data
+      - db-data-slave-1:/var/lib/postgresql/data
       - ./etc/postgresql-slave.conf.example:/etc/postgresql/postgresql.conf
     command:
       - postgres
@@ -49,16 +49,86 @@ services:
     networks:
       - otus
 
-#  nginx:
-#    image: nginx:1.23.4
-#    ports:
-#      - "8180:80"
-#    volumes:
-#      - ./etc/app.conf:/etc/nginx/conf.d/app.conf
-#    depends_on:
-#      - backend
-#    networks:
-#      - otus
+  postgres-slave-2:
+    image: postgres:17
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5435:5432"
+    environment:
+      - POSTGRES_DB=app_db
+      - POSTGRES_USER=app_user
+      - POSTGRES_PASSWORD=app_password
+    volumes:
+      - db-data-slave-2:/var/lib/postgresql/data
+      - ./etc/postgresql-slave.conf.example:/etc/postgresql/postgresql.conf
+    command:
+      - postgres
+      - -c
+      - config_file=/etc/postgresql/postgresql.conf
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U app_user app_db" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      - postgres-master
+    networks:
+      - otus
+
+  postgres-exporter-master:
+    image: prometheuscommunity/postgres-exporter
+    environment:
+      - DATA_SOURCE_NAME=postgresql://app_user:app_password@postgres-master:5432/app_db?sslmode=disable
+    ports:
+      - "9187:9187"
+    depends_on:
+      - postgres-master
+    networks:
+      - otus
+
+  postgres-exporter-slave-1:
+    image: prometheuscommunity/postgres-exporter
+    environment:
+      - DATA_SOURCE_NAME=postgresql://app_user:app_password@postgres-slave-1:5432/app_db?sslmode=disable
+    ports:
+      - "9188:9187"
+    depends_on:
+      - postgres-slave-1
+    networks:
+      - otus
+
+  postgres-exporter-slave-2:
+    image: prometheuscommunity/postgres-exporter
+    environment:
+      - DATA_SOURCE_NAME=postgresql://app_user:app_password@postgres-slave-2:5432/app_db?sslmode=disable
+    ports:
+      - "9189:9187"
+    depends_on:
+      - postgres-slave-2
+    networks:
+      - otus
+
+  prometheus:
+    image: prom/prometheus
+    volumes:
+      - ./etc/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    depends_on:
+      - postgres-exporter-master
+      - postgres-exporter-slave-1
+      - postgres-exporter-slave-2
+    networks:
+      - otus
+
+  grafana:
+    image: grafana/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - otus
 
   backend:
     build:
@@ -80,9 +150,22 @@ services:
       - "8080:8080"
     depends_on:
       - postgres-master
-      - postgres-slave
+      - postgres-slave-1
+      - postgres-slave-2
     networks:
       - otus
+
+#  nginx:
+#    image: nginx:1.23.4
+#    ports:
+#      - "8180:80"
+#    volumes:
+#      - ./etc/app.conf:/etc/nginx/conf.d/app.conf
+#    depends_on:
+#      - backend
+#    networks:
+#      - otus
+
 
 networks:
   otus:
@@ -90,3 +173,5 @@ networks:
 
 volumes:
   db-data:
+  db-data-slave-1:
+  db-data-slave-2:

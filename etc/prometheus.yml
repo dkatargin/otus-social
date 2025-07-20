@@ -1,0 +1,13 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: 'postgres-master'
+    static_configs:
+      - targets: ['postgres-exporter-master:9187']
+  - job_name: 'postgres-slave-1'
+    static_configs:
+      - targets: ['postgres-exporter-slave-1:9187']
+  - job_name: 'postgres-slave-2'
+    static_configs:
+      - targets: ['postgres-exporter-slave-2:9187']
