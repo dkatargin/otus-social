@@ -21,13 +21,7 @@ func main() {
 	}
 	log.Println("Starting server...", config.AppConfig)
 
-	// Initialize the database connection
-	//dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local",
-	//	config.AppConfig.Database.User, config.AppConfig.Database.Password,
-	//	config.AppConfig.Database.Host, config.AppConfig.Database.Port,
-	//	config.AppConfig.Database.Name)
-
-	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=5432 sslmode=disable TimeZone=Europe/Moscow",
+	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=5432 sslmode=disable TimeZone=UTC",
 		config.AppConfig.Database.Host, config.AppConfig.Database.User, config.AppConfig.Database.Password,
 		config.AppConfig.Database.Name)
 

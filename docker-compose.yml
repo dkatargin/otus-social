@@ -1,16 +1,16 @@
 services:
-  postgres:
+  postgres-master:
     image: postgres:17
     restart: unless-stopped
     ports:
-      - "127.0.0.1:5432:5432"
+      - "127.0.0.1:5433:5432"
     environment:
       - POSTGRES_DB=app_db
       - POSTGRES_USER=app_user
       - POSTGRES_PASSWORD=app_password
     volumes:
       - db-data:/var/lib/postgresql/data
-      - ./etc/postgresql.conf.example:/etc/postgresql/postgresql.conf
+      - ./etc/postgresql-master.conf.example:/etc/postgresql/postgresql.conf
       - ./etc/schema.sql:/docker-entrypoint-initdb.d/00_init_schema.sql
     command:
       - postgres
@@ -21,6 +21,31 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - otus
+  postgres-slave:
+    image: postgres:17
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5434:5432"
+    environment:
+      - POSTGRES_DB=app_db
+      - POSTGRES_USER=app_user
+      - POSTGRES_PASSWORD=app_password
+    volumes:
+      - db-data:/var/lib/postgresql/data
+      - ./etc/postgresql-slave.conf.example:/etc/postgresql/postgresql.conf
+    command:
+      - postgres
+      - -c
+      - config_file=/etc/postgresql/postgresql.conf
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U app_user app_db" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      - postgres-master
     networks:
       - otus
 
@@ -35,20 +60,29 @@ services:
 #    networks:
 #      - otus
 
-#  backend:
-#    build:
-#      context: ./src
-#      dockerfile: Dockerfile
-#    environment:
-#      - GIN_MODE=release
-#    volumes:
-#      - ./etc/app.yaml:/app/config.yaml
-#    ports:
-#      - "8080:8080"
-#    depends_on:
-#      - postgres
-#    networks:
-#      - otus
+  backend:
+    build:
+      context: ./src
+      dockerfile: Dockerfile
+    develop:
+      watch:
+        - action: rebuild
+          path: ./src
+          target: /build
+        - action: sync+restart
+          path: app.yaml
+          target: /app/config.yaml
+    environment:
+      - GIN_MODE=release
+    volumes:
+      - ./app.yaml:/app/config.yaml
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres-master
+      - postgres-slave
+    networks:
+      - otus
 
 networks:
   otus:
