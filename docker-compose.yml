@@ -10,8 +10,11 @@ services:
       - POSTGRES_PASSWORD=app_password
     volumes:
       - db-data:/var/lib/postgresql/data
+      - db-archives:/var/lib/postgresql/archives
       - ./etc/postgresql-master.conf.example:/etc/postgresql/postgresql.conf
       - ./etc/schema.sql:/docker-entrypoint-initdb.d/00_init_schema.sql
+      - ./etc/pg_hba.conf:/etc/postgresql/pg_hba.conf
+      - ./scripts/setup-replication.sh:/docker-entrypoint-initdb.d/99_setup_replication.sh
     command:
       - postgres
       - -c
@@ -29,23 +32,33 @@ services:
     ports:
       - "127.0.0.1:5434:5432"
     environment:
-      - POSTGRES_DB=app_db
-      - POSTGRES_USER=app_user
-      - POSTGRES_PASSWORD=app_password
+      - PGUSER=postgres
     volumes:
       - db-data-slave-1:/var/lib/postgresql/data
       - ./etc/postgresql-slave.conf.example:/etc/postgresql/postgresql.conf
+      - ./etc/pg_hba.conf:/etc/postgresql/pg_hba.conf
+      - ./scripts/setup-slave.sh:/docker-entrypoint-initdb.d/setup-slave.sh
+
     command:
-      - postgres
+      - bash
       - -c
-      - config_file=/etc/postgresql/postgresql.conf
+      - |
+        if [ ! -f /var/lib/postgresql/data/recovery.signal ]; then
+          rm -rf /var/lib/postgresql/data/*
+          pg_basebackup -h postgres-master -D /var/lib/postgresql/data -U app_user -v -P -W
+          echo "standby_mode = 'on'" >> /var/lib/postgresql/data/postgresql.auto.conf
+          echo "primary_conninfo = 'host=postgres-master port=5432 user=app_user password=app_password'" >> /var/lib/postgresql/data/postgresql.auto.conf
+          touch /var/lib/postgresql/data/standby.signal
+        fi
+        postgres -c config_file=/etc/postgresql/postgresql.conf
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U app_user app_db" ]
       interval: 5s
       timeout: 5s
       retries: 5
     depends_on:
-      - postgres-master
+      postgres-master:
+        condition: service_healthy
     networks:
       - otus
 
@@ -61,17 +74,27 @@ services:
     volumes:
       - db-data-slave-2:/var/lib/postgresql/data
       - ./etc/postgresql-slave.conf.example:/etc/postgresql/postgresql.conf
+      - ./etc/pg_hba.conf:/etc/postgresql/pg_hba.conf
     command:
       - postgres
       - -c
-      - config_file=/etc/postgresql/postgresql.conf
+      - |
+        if [ ! -f /var/lib/postgresql/data/standby.signal ]; then
+           rm -rf /var/lib/postgresql/data/*
+           pg_basebackup -h postgres-master -D /var/lib/postgresql/data -U app_user -v -P -W
+           echo "standby_mode = 'on'" >> /var/lib/postgresql/data/postgresql.auto.conf
+           echo "primary_conninfo = 'host=postgres-master port=5432 user=app_user password=app_password'" >> /var/lib/postgresql/data/postgresql.auto.conf
+           touch /var/lib/postgresql/data/standby.signal
+         fi
+         postgres -c config_file=/etc/postgresql/postgresql.conf
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U app_user app_db" ]
       interval: 5s
       timeout: 5s
       retries: 5
     depends_on:
-      - postgres-master
+      postgres-master:
+        condition: service_healthy
     networks:
       - otus
 
@@ -175,3 +198,4 @@ volumes:
   db-data:
   db-data-slave-1:
   db-data-slave-2:
+  db-archives:

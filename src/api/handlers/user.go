@@ -1,8 +1,9 @@
 package handlers
 
 import (
-	"github.com/gin-gonic/gin"
 	"social/db"
+
+	"github.com/gin-gonic/gin"
 )
 
 type UserInfo struct {
@@ -28,4 +29,22 @@ func UserSearch(c *gin.Context) {
 		return
 	}
 	c.JSON(200, gin.H{"users": users})
+}
+
+func UserGet(c *gin.Context) {
+	id := c.Param("id")
+	if id == "" {
+		c.JSON(400, gin.H{"error": "User ID is required"})
+		return
+	}
+
+	var user UserInfo
+
+	result := db.ORM.Table("users").Select(
+		"nickname, firstname, lastname").Where("id = ?", id).First(&user)
+	if result.Error != nil {
+		c.JSON(404, gin.H{"error": "User not found"})
+		return
+	}
+	c.JSON(200, gin.H{"user": user})
 }

@@ -17,7 +17,7 @@ maintenance_work_mem = 512MB		# min 64kB
 # - WAL -
 # - Settings -
 
-wal_level = minimal			# minimal, replica, or logical
+wal_level = replica			# minimal, replica, or logical
 synchronous_commit = off		# synchronization level;
 #full_page_writes = on			# recover from partial page writes
 #wal_log_hints = off			# also do full page writes of non-critical updates
@@ -113,7 +113,7 @@ min_wal_size = 1GB
 
 # Set these on the primary and on any standby that will send replication data.
 
-max_wal_senders = 0		# max number of walsender processes
+max_wal_senders = 10		# max number of walsender processes
 				# (change requires restart)
 #max_replication_slots = 10	# max number of replication slots
 				# (change requires restart)
@@ -139,8 +139,8 @@ max_wal_senders = 0		# max number of walsender processes
 # These settings are ignored on a primary server.
 
 primary_conninfo = 'host=postgres-master port=5432 user=app_user password=app_password'
+hot_standby = on
 #primary_slot_name = ''			# replication slot on sending server
-hot_standby = on			# "off" disallows queries during recovery
 					# (change requires restart)
 #max_standby_archive_delay = 30s	# max delay before canceling queries
 					# when reading WAL from archive;

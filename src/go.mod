@@ -3,15 +3,16 @@ module social
 go 1.24.3
 
 require (
+	github.com/brianvoe/gofakeit/v7 v7.2.1
 	github.com/gin-gonic/gin v1.10.0
 	golang.org/x/crypto v0.36.0
 	gopkg.in/yaml.v2 v2.4.0
 	gorm.io/driver/postgres v1.6.0
 	gorm.io/gorm v1.26.1
+	gorm.io/plugin/dbresolver v1.6.2
 )
 
 require (
-	github.com/brianvoe/gofakeit/v7 v7.2.1 // indirect
 	github.com/bytedance/sonic v1.11.6 // indirect
 	github.com/bytedance/sonic/loader v0.1.1 // indirect
 	github.com/cloudwego/base64x v0.1.4 // indirect

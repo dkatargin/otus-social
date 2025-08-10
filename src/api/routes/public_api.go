@@ -1,8 +1,9 @@
 package routes
 
 import (
-	"github.com/gin-gonic/gin"
 	"social/api/handlers"
+
+	"github.com/gin-gonic/gin"
 )
 
 func PublicApi(router *gin.Engine) *gin.RouterGroup {
@@ -12,6 +13,7 @@ func PublicApi(router *gin.Engine) *gin.RouterGroup {
 		publicEndpoints.POST("auth/login", handlers.Login)
 		publicEndpoints.POST("auth/logout", handlers.Logout)
 		publicEndpoints.GET("users/search", handlers.UserSearch)
+		publicEndpoints.GET("users/get/:id", handlers.UserGet)
 	}
 
 	return publicEndpoints

@@ -1,6 +1,7 @@
 listen_addresses = '*'
 port = 5432				# (change requires restart)
 max_connections = 1000			# (change requires restart)
+hba_file = '/etc/postgresql/pg_hba.conf'
 
 shared_buffers = 1GB			# min 128kB
 work_mem = 64MB				# min 64kB
@@ -57,7 +58,7 @@ archive_mode = on		# enables archiving; off, on, or always
 #archive_library = ''		# library to use to archive a WAL file
 				# (empty string indicates archive_command should
 				# be used)
-archive_command = 'cp %p /var/lib/postgresql/archives/%f'
+archive_command = 'test ! -f /var/lib/postgresql/archives/%f && cp %p /var/lib/postgresql/archives/%f'
 				# placeholders: %p = path of file to archive
 				#               %f = file name only
 				# e.g. 'test ! -f /mnt/server/archivedir/%f && cp %p /mnt/server/archivedir/%f'
@@ -140,7 +141,7 @@ wal_keep_size = 64MB		# in megabytes; 0 disables
 
 #primary_conninfo = ''			# connection string to sending server
 #primary_slot_name = ''			# replication slot on sending server
-hot_standby = off			# "off" disallows queries during recovery
+hot_standby = on			# "off" disallows queries during recovery
 					# (change requires restart)
 #max_standby_archive_delay = 30s	# max delay before canceling queries
 					# when reading WAL from archive;
