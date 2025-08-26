@@ -8,148 +8,62 @@ services:
       - POSTGRES_DB=app_db
       - POSTGRES_USER=app_user
       - POSTGRES_PASSWORD=app_password
+      - POSTGRES_REPLICATION_USER=replicator
+      - POSTGRES_REPLICATION_PASSWORD=replicatorpass
     volumes:
       - db-data:/var/lib/postgresql/data
-      - db-archives:/var/lib/postgresql/archives
       - ./etc/postgresql-master.conf.example:/etc/postgresql/postgresql.conf
-      - ./etc/schema.sql:/docker-entrypoint-initdb.d/00_init_schema.sql
       - ./etc/pg_hba.conf:/etc/postgresql/pg_hba.conf
+      - ./etc/schema.sql:/docker-entrypoint-initdb.d/00_init_schema.sql
       - ./scripts/setup-replication.sh:/docker-entrypoint-initdb.d/99_setup_replication.sh
-    command:
-      - postgres
-      - -c
-      - config_file=/etc/postgresql/postgresql.conf
+    command: >
+      postgres -c config_file=/etc/postgresql/postgresql.conf -c hba_file=/etc/postgresql/pg_hba.conf
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U app_user app_db" ]
-      interval: 5s
+      test: [ "CMD-SHELL", "PGPASSWORD=$$POSTGRES_PASSWORD pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB -h localhost" ]
+      interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
     networks:
       - otus
+
   postgres-slave-1:
     image: postgres:17
     restart: unless-stopped
     ports:
       - "127.0.0.1:5434:5432"
     environment:
-      - PGUSER=postgres
-    volumes:
-      - db-data-slave-1:/var/lib/postgresql/data
-      - ./etc/postgresql-slave.conf.example:/etc/postgresql/postgresql.conf
-      - ./etc/pg_hba.conf:/etc/postgresql/pg_hba.conf
-      - ./scripts/setup-slave.sh:/docker-entrypoint-initdb.d/setup-slave.sh
-
-    command:
-      - bash
-      - -c
-      - |
-        if [ ! -f /var/lib/postgresql/data/recovery.signal ]; then
-          rm -rf /var/lib/postgresql/data/*
-          pg_basebackup -h postgres-master -D /var/lib/postgresql/data -U app_user -v -P -W
-          echo "standby_mode = 'on'" >> /var/lib/postgresql/data/postgresql.auto.conf
-          echo "primary_conninfo = 'host=postgres-master port=5432 user=app_user password=app_password'" >> /var/lib/postgresql/data/postgresql.auto.conf
-          touch /var/lib/postgresql/data/standby.signal
-        fi
-        postgres -c config_file=/etc/postgresql/postgresql.conf
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U app_user app_db" ]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-    depends_on:
-      postgres-master:
-        condition: service_healthy
-    networks:
-      - otus
-
-  postgres-slave-2:
-    image: postgres:17
-    restart: unless-stopped
-    ports:
-      - "127.0.0.1:5435:5432"
-    environment:
       - POSTGRES_DB=app_db
       - POSTGRES_USER=app_user
       - POSTGRES_PASSWORD=app_password
+      - POSTGRES_MASTER_HOST=postgres-master
+      - POSTGRES_MASTER_PORT=5432
+      - POSTGRES_MASTER_USER=replicator
+      - POSTGRES_MASTER_PASSWORD=replicatorpass
     volumes:
-      - db-data-slave-2:/var/lib/postgresql/data
-      - ./etc/postgresql-slave.conf.example:/etc/postgresql/postgresql.conf
-      - ./etc/pg_hba.conf:/etc/postgresql/pg_hba.conf
-    command:
-      - postgres
-      - -c
-      - |
-        if [ ! -f /var/lib/postgresql/data/standby.signal ]; then
-           rm -rf /var/lib/postgresql/data/*
-           pg_basebackup -h postgres-master -D /var/lib/postgresql/data -U app_user -v -P -W
-           echo "standby_mode = 'on'" >> /var/lib/postgresql/data/postgresql.auto.conf
-           echo "primary_conninfo = 'host=postgres-master port=5432 user=app_user password=app_password'" >> /var/lib/postgresql/data/postgresql.auto.conf
-           touch /var/lib/postgresql/data/standby.signal
-         fi
-         postgres -c config_file=/etc/postgresql/postgresql.conf
+      - db-data-slave-1:/var/lib/postgresql/data
+
+    command: >
+      bash -c "
+      if [ ! -f /var/lib/postgresql/data/PG_VERSION ]; then
+        echo 'Initializing replica1...'
+        pg_basebackup -h postgres-master -D /var/lib/postgresql/data -U replicator -v -P -W
+        echo 'standby_mode = on' >> /var/lib/postgresql/data/recovery.conf
+        echo 'primary_conninfo = ''host=postgres-master port=5432 user=replicator password=replicatorpass''' >> /var/lib/postgresql/data/recovery.conf
+        echo 'trigger_file = ''/tmp/promote_replica1''' >> /var/lib/postgresql/data/recovery.conf
+      fi
+      postgres
+      "
+
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U app_user app_db" ]
-      interval: 5s
+      test: [ "CMD-SHELL", "PGPASSWORD=$$POSTGRES_PASSWORD pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB -h localhost" ]
+      interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
     depends_on:
       postgres-master:
         condition: service_healthy
-    networks:
-      - otus
-
-  postgres-exporter-master:
-    image: prometheuscommunity/postgres-exporter
-    environment:
-      - DATA_SOURCE_NAME=postgresql://app_user:app_password@postgres-master:5432/app_db?sslmode=disable
-    ports:
-      - "9187:9187"
-    depends_on:
-      - postgres-master
-    networks:
-      - otus
-
-  postgres-exporter-slave-1:
-    image: prometheuscommunity/postgres-exporter
-    environment:
-      - DATA_SOURCE_NAME=postgresql://app_user:app_password@postgres-slave-1:5432/app_db?sslmode=disable
-    ports:
-      - "9188:9187"
-    depends_on:
-      - postgres-slave-1
-    networks:
-      - otus
-
-  postgres-exporter-slave-2:
-    image: prometheuscommunity/postgres-exporter
-    environment:
-      - DATA_SOURCE_NAME=postgresql://app_user:app_password@postgres-slave-2:5432/app_db?sslmode=disable
-    ports:
-      - "9189:9187"
-    depends_on:
-      - postgres-slave-2
-    networks:
-      - otus
-
-  prometheus:
-    image: prom/prometheus
-    volumes:
-      - ./etc/prometheus.yml:/etc/prometheus/prometheus.yml
-    ports:
-      - "9090:9090"
-    depends_on:
-      - postgres-exporter-master
-      - postgres-exporter-slave-1
-      - postgres-exporter-slave-2
-    networks:
-      - otus
-
-  grafana:
-    image: grafana/grafana
-    ports:
-      - "3000:3000"
-    depends_on:
-      - prometheus
     networks:
       - otus
 
@@ -172,23 +86,12 @@ services:
     ports:
       - "8080:8080"
     depends_on:
-      - postgres-master
-      - postgres-slave-1
-      - postgres-slave-2
+      postgres-master:
+        condition: service_healthy
+      postgres-slave-1:
+        condition: service_healthy
     networks:
       - otus
-
-#  nginx:
-#    image: nginx:1.23.4
-#    ports:
-#      - "8180:80"
-#    volumes:
-#      - ./etc/app.conf:/etc/nginx/conf.d/app.conf
-#    depends_on:
-#      - backend
-#    networks:
-#      - otus
-
 
 networks:
   otus:
@@ -197,5 +100,3 @@ networks:
 volumes:
   db-data:
   db-data-slave-1:
-  db-data-slave-2:
-  db-archives:
