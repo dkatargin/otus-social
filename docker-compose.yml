@@ -9,7 +9,7 @@ services:
       - POSTGRES_USER=app_user
       - POSTGRES_PASSWORD=app_password
     volumes:
-      - db-data:/var/lib/postgresql/data
+      - ./db:/var/lib/postgresql/data
       - ./etc/postgresql-master-simple.conf:/etc/postgresql/postgresql.conf:ro
       - ./etc/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
       - ./etc/schema.sql:/docker-entrypoint-initdb.d/00_init_schema.sql
@@ -125,6 +125,5 @@ networks:
     driver: bridge
 
 volumes:
-  db-data:
   db-data-slave-1:
   db-data-slave-2:
