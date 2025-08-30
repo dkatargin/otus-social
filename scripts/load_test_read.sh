@@ -33,7 +33,7 @@ math.randomseed(os.time())
 
 request = function()
     local user_id = math.random(1, 1000000)  -- Случайный ID от 1 до 1M
-    local path = "/user/get/" .. user_id
+    local path = "/api/v1/user/get/" .. user_id
     return wrk.format("GET", path)
 end
 EOF
@@ -51,20 +51,20 @@ cat > /tmp/user_search_test.lua << 'EOF'
 -- Lua скрипт для тестирования /user/search
 math.randomseed(os.time())
 
--- Популярные имена для тестирования
+-- Популярные имена для тестирования (латиница для корректной работы URL)
 local first_names = {
-    "Александр", "Дмитрий", "Максим", "Сергей", "Андрей",
-    "Алексей", "Артем", "Илья", "Кирилл", "Михаил",
-    "Никита", "Матвей", "Роман", "Егор", "Арсений"
+    "Alexander", "Dmitry", "Maxim", "Sergey", "Andrew",
+    "Alexey", "Artem", "Ilya", "Kirill", "Michael",
+    "Nikita", "Matthew", "Roman", "Egor", "Arseniy"
 }
 
 local last_names = {
-    "Иванов", "Петров", "Сидоров", "Смирнов", "Кузнецов",
-    "Попов", "Васильев", "Соколов", "Михайлов", "Новиков",
-    "Федоров", "Морозов", "Волков", "Алексеев", "Лебедев"
+    "Ivanov", "Petrov", "Sidorov", "Smirnov", "Kuznetsov",
+    "Popov", "Vasiliev", "Sokolov", "Mikhailov", "Novikov",
+    "Fedorov", "Morozov", "Volkov", "Alekseev", "Lebedev"
 }
 
-request = function()
+function request()
     local use_first_name = math.random() > 0.5
     local use_last_name = math.random() > 0.3
 
@@ -91,14 +91,14 @@ request = function()
     table.insert(params, "offset=" .. math.random(0, 100))
 
     local query_string = table.concat(params, "&")
-    local path = "/user/search?" .. query_string
+    local path = "/api/v1/user/search?" .. query_string
 
     return wrk.format("GET", path)
 end
 EOF
 
 wrk -t$THREADS -c$CONNECTIONS -d$DURATION -s /tmp/user_search_test.lua $BASE_URL > user_search_results.txt
-echo "Результаты сохранены в user_search_results.txt"
+echo "Результаты сохр��нены в user_search_results.txt"
 cat user_search_results.txt
 
 echo
@@ -110,20 +110,20 @@ cat > /tmp/mixed_test.lua << 'EOF'
 math.randomseed(os.time())
 
 local first_names = {
-    "Александр", "Дмитрий", "Максим", "Сергей", "Андрей",
-    "Алексей", "Артем", "Илья", "Кирилл", "Михаил"
+    "Alexander", "Dmitry", "Maxim", "Sergey", "Andrew",
+    "Alexey", "Artem", "Ilya", "Kirill", "Michael"
 }
 
 local last_names = {
-    "Иванов", "Петров", "Сидоров", "Смирнов", "Кузнецов",
-    "Попов", "Васильев", "Соколов", "Михайлов", "Новиков"
+    "Ivanov", "Petrov", "Sidorov", "Smirnov", "Kuznetsov",
+    "Popov", "Vasiliev", "Sokolov", "Mikhailov", "Novikov"
 }
 
-request = function()
+function request()
     if math.random() > 0.5 then
         -- 50% запросов на /user/get/{id}
         local user_id = math.random(1, 1000000)
-        local path = "/user/get/" .. user_id
+        local path = "/api/v1/user/get/" .. user_id
         return wrk.format("GET", path)
     else
         -- 50% запросов на /user/search
@@ -146,7 +146,7 @@ request = function()
         table.insert(params, "limit=" .. math.random(10, 50))
 
         local query_string = table.concat(params, "&")
-        local path = "/user/search?" .. query_string
+        local path = "/api/v1/user/search?" .. query_string
         return wrk.format("GET", path)
     end
 end

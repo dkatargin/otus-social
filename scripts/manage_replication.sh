@@ -166,36 +166,127 @@ check_transaction_loss() {
     echo "=== Сравнение LSN между узлами ==="
 
     echo "Мастер LSN:"
-    safe_docker_exec otus-social-postgres-master-1 psql -U app_user -d app_db -c "
-        SELECT pg_current_wal_lsn() as current_lsn;
-    " 2>/dev/null || echo "Мастер недоступен"
+    master_lsn=$(safe_docker_exec otus-social-postgres-master-1 psql -U app_user -d app_db -t -c "
+        SELECT pg_current_wal_lsn();
+    " 2>/dev/null | tr -d ' ' | head -1 || echo "N/A")
+    echo "LSN: $master_lsn"
 
     echo "Слейв 1 LSN:"
-    safe_docker_exec otus-social-postgres-slave-1-1 psql -U app_user -d app_db -c "
-        SELECT pg_last_wal_replay_lsn() as replayed_lsn;
-    " 2>/dev/null || echo "Слейв 1 недоступен"
+    if is_container_running "otus-social-postgres-slave-1-1"; then
+        slave1_lsn=$(docker exec otus-social-postgres-slave-1-1 psql -U app_user -d app_db -t -c "
+            SELECT pg_last_wal_replay_lsn();
+        " 2>/dev/null | tr -d ' ' | head -1 || echo "N/A")
+        echo "LSN: $slave1_lsn"
+    else
+        slave1_lsn="N/A"
+        echo "LSN: N/A (контейнер недоступен)"
+    fi
 
     echo "Слейв 2 LSN:"
-    safe_docker_exec otus-social-postgres-slave-2-1 psql -U app_user -d app_db -c "
-        SELECT pg_last_wal_replay_lsn() as replayed_lsn;
-    " 2>/dev/null || echo "Слейв 2 недоступен"
+    if is_container_running "otus-social-postgres-slave-2-1"; then
+        slave2_lsn=$(docker exec otus-social-postgres-slave-2-1 psql -U app_user -d app_db -t -c "
+            SELECT pg_last_wal_replay_lsn();
+        " 2>/dev/null | tr -d ' ' | head -1 || echo "N/A")
+        echo "LSN: $slave2_lsn"
+    else
+        slave2_lsn="N/A"
+        echo "LSN: N/A (контейнер недоступен)"
+    fi
 
     echo "=== Подсчет записей в таблице users ==="
 
     echo "Мастер:"
-    safe_docker_exec otus-social-postgres-master-1 psql -U app_user -d app_db -c "
-        SELECT COUNT(*) as user_count FROM users;
-    " 2>/dev/null || echo "Мастер недоступен"
+    if is_container_running "otus-social-postgres-master-1"; then
+        master_count=$(docker exec otus-social-postgres-master-1 psql -U app_user -d app_db -t -c "
+            SELECT COUNT(*) FROM users;
+        " 2>/dev/null | tr -d ' ' | head -1 || echo "0")
+        echo "Количество пользователей: $master_count"
+    else
+        master_count="0"
+        echo "Количество пользователей: 0 (контейнер недоступен)"
+    fi
 
     echo "Слейв 1:"
-    safe_docker_exec otus-social-postgres-slave-1-1 psql -U app_user -d app_db -c "
-        SELECT COUNT(*) as user_count FROM users;
-    " 2>/dev/null || echo "Слейв 1 недоступен"
+    if is_container_running "otus-social-postgres-slave-1-1"; then
+        slave1_count=$(docker exec otus-social-postgres-slave-1-1 psql -U app_user -d app_db -t -c "
+            SELECT COUNT(*) FROM users;
+        " 2>/dev/null | tr -d ' ' | head -1 || echo "0")
+        echo "Количество пользователей: $slave1_count"
+    else
+        slave1_count="0"
+        echo "Количество пользователей: 0 (контейнер недоступен)"
+    fi
 
     echo "Слейв 2:"
-    safe_docker_exec otus-social-postgres-slave-2-1 psql -U app_user -d app_db -c "
-        SELECT COUNT(*) as user_count FROM users;
-    " 2>/dev/null || echo "Слейв 2 недоступен"
+    if is_container_running "otus-social-postgres-slave-2-1"; then
+        slave2_count=$(docker exec otus-social-postgres-slave-2-1 psql -U app_user -d app_db -t -c "
+            SELECT COUNT(*) FROM users;
+        " 2>/dev/null | tr -d ' ' | head -1 || echo "0")
+        echo "Количество пользователей: $slave2_count"
+    else
+        slave2_count="0"
+        echo "Количество пользователей: 0 (контейнер недоступен)"
+    fi
+
+    echo "=== Анализ потерь транзакций ==="
+
+    # Определяем максимальное количество записей как базовое
+    max_count=0
+    if [[ "$master_count" =~ ^[0-9]+$ ]] && [ "$master_count" -gt "$max_count" ]; then
+        max_count=$master_count
+    fi
+    if [[ "$slave1_count" =~ ^[0-9]+$ ]] && [ "$slave1_count" -gt "$max_count" ]; then
+        max_count=$slave1_count
+    fi
+    if [[ "$slave2_count" =~ ^[0-9]+$ ]] && [ "$slave2_count" -gt "$max_count" ]; then
+        max_count=$slave2_count
+    fi
+
+    echo "Максимальное количество записей: $max_count"
+
+    # Вычисляем потери
+    total_loss=0
+
+    if [[ "$master_count" =~ ^[0-9]+$ ]]; then
+        master_loss=$((max_count - master_count))
+        echo "Потери на мастере: $master_loss записей"
+        if [ "$master_loss" -gt 0 ]; then
+            total_loss=$((total_loss + master_loss))
+        fi
+    else
+        echo "Мастер недоступен - невозможно определить потери"
+    fi
+
+    if [[ "$slave1_count" =~ ^[0-9]+$ ]]; then
+        slave1_loss=$((max_count - slave1_count))
+        echo "Потери на слейве 1: $slave1_loss записей"
+        if [ "$slave1_loss" -gt 0 ]; then
+            total_loss=$((total_loss + slave1_loss))
+        fi
+    else
+        echo "Слейв 1 недоступен - невозможно определить потери"
+    fi
+
+    if [[ "$slave2_count" =~ ^[0-9]+$ ]]; then
+        slave2_loss=$((max_count - slave2_count))
+        echo "Потери на слейве 2: $slave2_loss записей"
+        if [ "$slave2_loss" -gt 0 ]; then
+            total_loss=$((total_loss + slave2_loss))
+        fi
+    else
+        echo "Слейв 2 недоступен - невозможно определить потери"
+    fi
+
+    echo "=== Итоговая оценка потерь ==="
+    echo "Общее количество потерянных записей: $total_loss"
+
+    if [ "$total_loss" -eq 0 ]; then
+        echo "✅ Потери транзакций отсутствуют - данные синхронизированы"
+    elif [ "$total_loss" -lt 10 ]; then
+        echo "⚠️  Минимальные потери транзакций ($total_loss записей)"
+    else
+        echo "❌ Значительные потери транзакций ($total_loss записей)"
+    fi
 }
 
 # Опредеkение самого свежего слейва
@@ -272,7 +363,7 @@ case "$1" in
         log "1. Проверка статуса до failover"
         check_replication_status
 
-        log "2. Определение самого свежего слейва"
+        log "2. Опред��ление самого свежего слейва"
         freshest=$(find_freshest_slave | tail -1)
 
         if [ -z "$freshest" ]; then
@@ -311,7 +402,7 @@ case "$1" in
         echo "  status              - Проверить статус репликации"
         echo "  promote <slave>     - Промоутить слейв до мастера"
         echo "  switch <slave> <master> - Переключить слейв на новый мастер"
-        echo "  check-loss          - Проверить потери транзакций"
+        echo "  check-loss          - Проверить потери тра��закций"
         echo "  find-freshest       - Найти самый свежий слейв"
         echo "  full-failover       - Выполнить полный сценарий failover"
         echo ""

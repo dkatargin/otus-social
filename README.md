@@ -1,4 +1,4 @@
-# Система репликации PostgreSQL
+# Проект по курсу OTUS Highload Architect
 
 Проект реализует систему репликации PostgreSQL с 1 мастером и 2 слейвами для курса Highload Architect.
 

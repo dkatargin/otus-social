@@ -77,7 +77,7 @@ function request()
     local year = math.random(1970, 2000)
     local month = math.random(1, 12)
     local day = math.random(1, 28)
-    local birthday = string.format("%04d-%02d-%02d", year, month, day)
+    local birthday = string.format("%04d-%02d-%02dT00:00:00Z", year, month, day)
 
     local body = string.format([[{
         "nickname": "%s",
@@ -125,7 +125,7 @@ if [ -f $COUNTER_FILE ]; then
     successful_writes=$(cat $COUNTER_FILE)
     echo
     echo "=== Статистика записи ==="
-    echo "Успешно записано пользователей: $successful_writes"
+    echo "Успешно запи��ано пользователей: $successful_writes"
 else
     echo "Не удалось получить статистику записи"
 fi

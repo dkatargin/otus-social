@@ -220,8 +220,8 @@ compare_results() {
     if [ -f "user_search_results_before.txt" ] && [ -f "user_search_results_after.txt" ]; then
         echo -e "${YELLOW}Тест /user/search:${NC}"
         echo "ДО оптимизации:"
-        grep "Requests/sec\|Transfer/sec" "user_search_results_before.txt" || echo "Дан��ые не найдены"
-        echo "��ОСЛЕ оптимизации:"
+        grep "Requests/sec\|Transfer/sec" "user_search_results_before.txt" || echo "Данные не найдены"
+        echo "ПОСЛЕ оптимизации:"
         grep "Requests/sec\|Transfer/sec" "user_search_results_after.txt" || echo "Данные не найдены"
         echo
     fi

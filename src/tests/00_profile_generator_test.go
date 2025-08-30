@@ -25,7 +25,7 @@ type RegisterRequest struct {
 }
 
 func TestProfileGenerator(t *testing.T) {
-	const total = 700000
+	const total = 500000
 	const workers = 5 // количество одновременных запросов
 	var wg sync.WaitGroup
 	sem := make(chan struct{}, workers)
