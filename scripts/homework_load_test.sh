@@ -218,7 +218,7 @@ EOF
         echo "" >> load_test_comparison.md
     fi
 
-    log "Отчет сравнени�� сохранен в load_test_comparison.md"
+    log "Отчет сравнения сохранен в load_test_comparison.md"
 
     # Выводим краткие результаты в консоль
     echo -e "${YELLOW}Краткие результаты:${NC}"

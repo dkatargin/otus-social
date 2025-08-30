@@ -121,7 +121,7 @@ func (h *UserHandler) Login() (token string, err error) {
 func (h *UserHandler) Logout() (err error) {
 	ctx := context.Background()
 	var userId int64
-	// Чтение для п��лучения ID (read-only)
+	// Чтение для получения ID (read-only)
 	db.GetReadOnlyDB(ctx).Model(&models.User{}).Select("id").Where("nickname = ?", h.Nickname).First(&userId)
 	// Удаление токена (запись в мастер)
 	err = db.GetWriteDB(ctx).Table("user_tokens").Where("user_id = ?", userId).Delete(&models.UserTokens{}).Error

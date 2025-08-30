@@ -125,7 +125,7 @@ if [ -f $COUNTER_FILE ]; then
     successful_writes=$(cat $COUNTER_FILE)
     echo
     echo "=== Статистика записи ==="
-    echo "Успешно запи��ано пользователей: $successful_writes"
+    echo "Успешно записано пользователей: $successful_writes"
 else
     echo "Не удалось получить статистику записи"
 fi

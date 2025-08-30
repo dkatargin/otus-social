@@ -323,7 +323,7 @@ find_freshest_slave() {
         echo "Только слейв 1 доступен"
         echo "postgres-slave-1"
     elif [ "$slave2_available" = true ] && [ "$slave1_available" = false ]; then
-        echo "��олько слейв 2 доступен"
+        echo "Только слейв 2 доступен"
         echo "postgres-slave-2"
     elif [ "$slave1_available" = true ] && [ "$slave2_available" = true ]; then
         # Оба доступны, выбираем самый свежий
@@ -363,7 +363,7 @@ case "$1" in
         log "1. Проверка статуса до failover"
         check_replication_status
 
-        log "2. Опред��ление самого свежего слейва"
+        log "2. Определение самого свежего слейва"
         freshest=$(find_freshest_slave | tail -1)
 
         if [ -z "$freshest" ]; then
@@ -389,7 +389,7 @@ case "$1" in
             fi
         fi
 
-        log "5. Проверк�� потерь транзакций"
+        log "5. Проверка потерь транзакций"
         check_transaction_loss
 
         log "6. Финальная проверка статуса"
@@ -402,7 +402,7 @@ case "$1" in
         echo "  status              - Проверить статус репликации"
         echo "  promote <slave>     - Промоутить слейв до мастера"
         echo "  switch <slave> <master> - Переключить слейв на новый мастер"
-        echo "  check-loss          - Проверить потери тра��закций"
+        echo "  check-loss          - Проверить потери транзакций"
         echo "  find-freshest       - Найти самый свежий слейв"
         echo "  full-failover       - Выполнить полный сценарий failover"
         echo ""

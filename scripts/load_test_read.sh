@@ -98,7 +98,7 @@ end
 EOF
 
 wrk -t$THREADS -c$CONNECTIONS -d$DURATION -s /tmp/user_search_test.lua $BASE_URL > user_search_results.txt
-echo "Результаты сохр��нены в user_search_results.txt"
+echo "Результаты сохранены в user_search_results.txt"
 cat user_search_results.txt
 
 echo

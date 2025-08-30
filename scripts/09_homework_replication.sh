@@ -82,7 +82,7 @@ check_replication() {
     log "Проверка статуса репликации..."
     "$SCRIPTS_DIR/manage_replication.sh" status
 
-    log "Реп����кация настроена корректно"
+    log "Репликация настроена корректно"
 }
 
 # Проверка настройки реплицированного DataSource
