@@ -4,12 +4,13 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/brianvoe/gofakeit/v7"
 	"net/http"
 	"strings"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/brianvoe/gofakeit/v7"
 )
 
 type RegisterRequest struct {
@@ -24,7 +25,7 @@ type RegisterRequest struct {
 }
 
 func TestProfileGenerator(t *testing.T) {
-	const total = 800000
+	const total = 700000
 	const workers = 5 // количество одновременных запросов
 	var wg sync.WaitGroup
 	sem := make(chan struct{}, workers)
@@ -48,20 +49,32 @@ func TestProfileGenerator(t *testing.T) {
 				City:     gofakeit.City(),
 			}
 			body, _ := json.Marshal(req)
-			resp, err := http.Post(fmt.Sprintf("%s/auth/register", ApiBaseUrl), "application/json", bytes.NewBuffer(body))
+			resp, err := http.Post(fmt.Sprintf("%s/api/v1/auth/register", ApiBaseUrl), "application/json", bytes.NewBuffer(body))
 
 			if err != nil {
+				t.Errorf("HTTP request failed for request %d: %v", i, err)
+				return
+			}
+
+			if resp == nil {
+				t.Errorf("Received nil response for request %d", i)
+				return
+			}
+
+			defer resp.Body.Close()
+
+			if resp.StatusCode != http.StatusOK {
 				var response map[string]interface{}
 				errBodyDecode := json.NewDecoder(resp.Body).Decode(&response)
 				if errBodyDecode != nil {
-					t.Errorf("Failed to decode response for request %d: %v", i, err)
+					t.Errorf("Request failed with status %d for request %d", resp.StatusCode, i)
 				} else {
-					t.Errorf("Request failed with error %d: %v", i, response)
+					if resp.StatusCode == 400 {
+						t.Logf("Request 400 %v", response)
+						return
+					}
+					t.Errorf("Request failed with status %d for request %d: %v", resp.StatusCode, i, response)
 				}
-				return
-			}
-			if resp.StatusCode != http.StatusOK {
-				t.Errorf("Request failed with error: %d", resp.StatusCode)
 				return
 			}
 

@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
@@ -33,8 +34,10 @@ func (h *UserHandler) Register() (userId *int64, err error) {
 	if h.DbModel == nil || h.DbModel.Password == "" {
 		return nil, errors.New("nickname is empty")
 	}
-	// Проверяем, существует ли пользователь с таким никнеймом
-	err = db.ORM.Model(&models.User{}).Where("nickname = ?", *h.Nickname).Count(&alreadyExists).Error
+
+	ctx := context.Background()
+	// Проверяем, существует ли пользователь с таким никнеймом (read-only операция)
+	err = db.GetReadOnlyDB(ctx).Model(&models.User{}).Where("nickname = ?", *h.Nickname).Count(&alreadyExists).Error
 	if err != nil {
 		return nil, err
 	}
@@ -51,7 +54,8 @@ func (h *UserHandler) Register() (userId *int64, err error) {
 	passwordHash := hex.EncodeToString(salt) + "$" + hex.EncodeToString(hash)
 	h.DbModel.Password = passwordHash
 
-	trx := db.ORM.Model(&models.User{}).Create(&h.DbModel)
+	// Запись в мастер
+	trx := db.GetWriteDB(ctx).Model(&models.User{}).Create(&h.DbModel)
 	if trx.Error != nil {
 		return nil, trx.Error
 	}
@@ -62,7 +66,10 @@ func (h *UserHandler) CheckToken() (err error) {
 	if h.Token == nil || *h.Token == "" {
 		return errors.New("Token is empty")
 	}
-	err = db.ORM.Model(&models.UserTokens{}).Where("Token = ? AND user_id = ?", *h.Token, h.DbModel.ID).First(&h.DbModel).Error
+
+	ctx := context.Background()
+	// Чтение токена - read-only операция
+	err = db.GetReadOnlyDB(ctx).Model(&models.UserTokens{}).Where("Token = ? AND user_id = ?", *h.Token, h.DbModel.ID).First(&h.DbModel).Error
 	if err != nil {
 		return err
 	}
@@ -73,9 +80,10 @@ func (h *UserHandler) CheckToken() (err error) {
 }
 
 func (h *UserHandler) Login() (token string, err error) {
-	// Получаем пользователя из БД
+	ctx := context.Background()
+	// Получаем пользователя из БД (read-only операция)
 	var storedUser *models.User
-	err = db.ORM.Model(&models.User{}).Where("nickname = ?", h.Nickname).First(&storedUser).Error
+	err = db.GetReadOnlyDB(ctx).Model(&models.User{}).Where("nickname = ?", h.Nickname).First(&storedUser).Error
 	if err != nil {
 		return "", errors.New("invalid nickname")
 	}
@@ -102,7 +110,8 @@ func (h *UserHandler) Login() (token string, err error) {
 		return "", err
 	}
 	token = hex.EncodeToString(tokenBytes)
-	err = db.ORM.Model(&models.UserTokens{}).Create(&models.UserTokens{
+	// Запись токена в мастер
+	err = db.GetWriteDB(ctx).Model(&models.UserTokens{}).Create(&models.UserTokens{
 		UserID: storedUser.ID,
 		Token:  token,
 	}).Error
@@ -110,11 +119,40 @@ func (h *UserHandler) Login() (token string, err error) {
 }
 
 func (h *UserHandler) Logout() (err error) {
+	ctx := context.Background()
 	var userId int64
-	db.ORM.Model(&models.User{}).Select("id").Where("nickname = ?", h.Nickname).First(&userId)
-	err = db.ORM.Table("user_tokens").Where("user_id = ?", userId).Delete(&models.UserTokens{}).Error
+	// Чтение для п��лучения ID (read-only)
+	db.GetReadOnlyDB(ctx).Model(&models.User{}).Select("id").Where("nickname = ?", h.Nickname).First(&userId)
+	// Удаление токена (запись в мастер)
+	err = db.GetWriteDB(ctx).Table("user_tokens").Where("user_id = ?", userId).Delete(&models.UserTokens{}).Error
 	if err != nil {
 		return err
 	}
 	return nil
+}
+
+// GetUser получает пользователя по ID (read-only операция)
+func GetUser(ctx context.Context, userID int64) (*models.User, error) {
+	var user models.User
+	err := db.GetReadOnlyDB(ctx).Where("id = ?", userID).First(&user).Error
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+// SearchUsers ищет пользователей по имени и фамилии (read-only операция)
+func SearchUsers(ctx context.Context, firstName, lastName string, limit, offset int) ([]models.User, error) {
+	var users []models.User
+	query := db.GetReadOnlyDB(ctx).Model(&models.User{})
+
+	if firstName != "" {
+		query = query.Where("first_name ILIKE ?", firstName+"%")
+	}
+	if lastName != "" {
+		query = query.Where("last_name ILIKE ?", lastName+"%")
+	}
+
+	err := query.Order("id").Limit(limit).Offset(offset).Find(&users).Error
+	return users, err
 }

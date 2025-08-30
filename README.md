@@ -1,24 +1,36 @@
-# otus-social
+# Система репликации PostgreSQL
 
-Проект по курсу OTUS Highload Architect
+Проект реализует систему репликации PostgreSQL с 1 мастером и 2 слейвами для курса Highload Architect.
 
-[OpenAPI 3.0](doc/Backend-OpenAPI.json)
+## Архитектура
 
-## Зависимости
-- [Go 1.21+](https://go.dev/dl/)
-- [PostgreSQL 15+](https://www.postgresql.org/download/)
-- [Python UV](https://docs.astral.sh/uv/) (для тестов и графиков)
+- **PostgreSQL Master** (порт 5433) - основная база данных для записи
+- **PostgreSQL Slave 1** (порт 5434) - первая реплика для чтения  
+- **PostgreSQL Slave 2** (порт 5435) - вторая реплика для чтения
+- **Backend API** (порт 8080) - Go приложение с автоматическим роутингом запросов
 
-## Тестирование нагрузки
+## Быстрый старт
 
-Из каталога src запускаем GO-тесты для проверки скорости и сохранения результатов:
+### 1. Запуск системы
 
 ```bash
-go test -bench=. -benchmem -run=^$ -count=10 ./tests/01_search_benchmark_test.go > search_bench.json
+# Запуск всех сервисов
+docker-compose up -d
+
+# Проверка статуса
+docker-compose ps
 ```
 
-Строим графики:
+## ДЗ "Репликация: практическое применение // ДЗ"
 
-```bash
-uv run make_plot.py --input search_bench.json --output search_bench.png
+Скрипт запуска `scripts/09_homework_replication.sh` принимает параметры:
+```
+full                    - Выполнить полный сценарий домашнего задания
+start                   - Запустить систему
+check-datasource        - Проверить настройку реплицированного DataSource
+setup-sync-replication  - Настроить кворумную синхронную репликацию
+demonstrate-routing     - Демонстрация маршрутизации запросов на слейвы
+test-read              - Запустить тестирование чтения
+test-failover          - Запустить тестирование failover
+cleanup                - Очистить систему
 ```

@@ -1,6 +1,7 @@
 package db
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"social/config"
@@ -8,6 +9,7 @@ import (
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/gorm/schema"
 	"gorm.io/plugin/dbresolver"
 )
 
@@ -46,7 +48,12 @@ func ConnectDB() (err error) {
 		replicaDSNs = append(replicaDSNs, postgres.Open(dsnFromConfig(r)))
 	}
 
-	db, err := gorm.Open(postgres.Open(masterDSN), &gorm.Config{})
+	db, err := gorm.Open(postgres.Open(masterDSN), &gorm.Config{
+		NamingStrategy: schema.NamingStrategy{
+			SingularTable: true,
+			NoLowerCase:   false,
+		},
+	})
 	if err != nil {
 		return err
 	}
@@ -61,8 +68,18 @@ func ConnectDB() (err error) {
 		}
 	}
 
-	err = db.AutoMigrate(&models.User{}, &models.Migration{})
+	err = db.AutoMigrate(&models.User{}, &models.Migration{}, &models.UserTokens{}, &models.WriteTransaction{}, &models.Interest{}, &models.UserInterest{})
 
 	ORM = db
 	return nil
+}
+
+// GetReadOnlyDB возвращает подключение для чтения (слейвы)
+func GetReadOnlyDB(ctx context.Context) *gorm.DB {
+	return ORM.WithContext(ctx).Clauses(dbresolver.Read)
+}
+
+// GetWriteDB возвращает подключение для записи (мастер)
+func GetWriteDB(ctx context.Context) *gorm.DB {
+	return ORM.WithContext(ctx).Clauses(dbresolver.Write)
 }

@@ -16,9 +16,9 @@ hot_standby = on
 hot_standby_feedback = on
 
 # Archive
-archive_mode = on
-archive_command = 'test ! -f /var/lib/postgresql/archive/%f && cp %p /var/lib/postgresql/archive/%f'
-archive_timeout = 60
+archive_mode = off
+# archive_command = 'test ! -f /var/lib/postgresql/archive/%f && cp %p /var/lib/postgresql/archive/%f'
+# archive_timeout = 60
 
 # Logging
 logging_collector = off
