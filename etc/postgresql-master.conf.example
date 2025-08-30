@@ -1,0 +1,38 @@
+listen_addresses = '*'
+port = 5432
+max_connections = 1000
+shared_buffers = 128MB
+effective_cache_size = 256MB
+work_mem = 64MB
+maintenance_work_mem = 512MB
+hba_file = '/etc/postgresql/pg_hba.conf'
+
+# WAL
+wal_level = replica
+max_wal_senders = 3
+max_replication_slots = 3
+wal_keep_size = 64MB
+hot_standby = on
+hot_standby_feedback = on
+
+# Archive
+archive_mode = off
+# archive_command = 'test ! -f /var/lib/postgresql/archive/%f && cp %p /var/lib/postgresql/archive/%f'
+# archive_timeout = 60
+
+# Logging
+logging_collector = off
+log_directory = 'stderr'
+log_filename = 'postgresql-%Y-%m-%d_%H%M%S.log'
+log_statement = 'mod'
+log_min_duration_statement = 1000
+
+# Checkpoints
+checkpoint_completion_target = 0.9
+checkpoint_timeout = 5min
+max_wal_size = 1GB
+min_wal_size = 80MB
+
+# Vacuum
+autovacuum = on
+autovacuum_max_workers = 3

@@ -1,17 +1,23 @@
 package config
 
 import (
-	"gopkg.in/yaml.v2"
 	"os"
+
+	"gopkg.in/yaml.v2"
 )
 
-type ConfigSchema struct {
-	Database struct {
-		Name     string `yaml:"name"`
-		Host     string `yaml:"host"`
-		Port     int    `yaml:"port"`
-		User     string `yaml:"user"`
-		Password string `yaml:"password"`
+type DBConfig struct {
+	Host     string `yaml:"host"`
+	Port     int    `yaml:"port"`
+	User     string `yaml:"user"`
+	Password string `yaml:"password"`
+	DBName   string `yaml:"dbname"`
+}
+
+type Config struct {
+	Databases struct {
+		Master   DBConfig   `yaml:"master"`
+		Replicas []DBConfig `yaml:"replicas"`
 	} `yaml:"db"`
 	Backend struct {
 		Host string `yaml:"host"`
@@ -23,7 +29,7 @@ type ConfigSchema struct {
 	} `yaml:"logs"`
 }
 
-var AppConfig ConfigSchema
+var AppConfig *Config
 
 func LoadConfig(filePath string) error {
 	data, err := os.ReadFile(filePath)

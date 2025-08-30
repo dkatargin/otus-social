@@ -1,54 +1,124 @@
 services:
-  postgres:
+  postgres-master:
     image: postgres:17
     restart: unless-stopped
     ports:
-      - "127.0.0.1:5432:5432"
+      - "127.0.0.1:5433:5432"
     environment:
       - POSTGRES_DB=app_db
       - POSTGRES_USER=app_user
       - POSTGRES_PASSWORD=app_password
     volumes:
       - db-data:/var/lib/postgresql/data
-      - ./etc/postgresql.conf.example:/etc/postgresql/postgresql.conf
+      - ./etc/postgresql-master-simple.conf:/etc/postgresql/postgresql.conf:ro
+      - ./etc/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
       - ./etc/schema.sql:/docker-entrypoint-initdb.d/00_init_schema.sql
-    command:
-      - postgres
-      - -c
-      - config_file=/etc/postgresql/postgresql.conf
+      - ./scripts/setup-replication.sh:/docker-entrypoint-initdb.d/99_setup_replication.sh
+    command: ["postgres", "-c", "config_file=/etc/postgresql/postgresql.conf", "-c", "hba_file=/etc/postgresql/pg_hba.conf"]
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U app_user app_db" ]
-      interval: 5s
+      test: ["CMD-SHELL", "pg_isready -U app_user -d app_db"]
+      interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
     networks:
       - otus
 
-#  nginx:
-#    image: nginx:1.23.4
-#    ports:
-#      - "8180:80"
-#    volumes:
-#      - ./etc/app.conf:/etc/nginx/conf.d/app.conf
-#    depends_on:
-#      - backend
-#    networks:
-#      - otus
+  postgres-slave-1:
+    image: postgres:17
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5434:5432"
+    environment:
+      - POSTGRES_DB=app_db
+      - POSTGRES_USER=app_user
+      - POSTGRES_PASSWORD=app_password
+    volumes:
+      - db-data-slave-1:/var/lib/postgresql/data
+    command: |
+      bash -c "
+      if [ ! -f /var/lib/postgresql/data/postgresql.conf ]; then
+        echo 'Initializing replica1...'
+        rm -rf /var/lib/postgresql/data/* 2>/dev/null || true
+        
+        PGPASSWORD=replicatorpass pg_basebackup -h postgres-master -D /var/lib/postgresql/data -U replicator -v -P -R
+        echo 'application_name = replica1' >> /var/lib/postgresql/data/postgresql.auto.conf
+        
+        chown -R postgres:postgres /var/lib/postgresql/data
+        chmod 700 /var/lib/postgresql/data
+      fi
+      
+      exec docker-entrypoint.sh postgres
+      "
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app_user -d app_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    depends_on:
+      postgres-master:
+        condition: service_healthy
+    networks:
+      - otus
 
-#  backend:
-#    build:
-#      context: ./src
-#      dockerfile: Dockerfile
-#    environment:
-#      - GIN_MODE=release
-#    volumes:
-#      - ./etc/app.yaml:/app/config.yaml
-#    ports:
-#      - "8080:8080"
-#    depends_on:
-#      - postgres
-#    networks:
-#      - otus
+  postgres-slave-2:
+    image: postgres:17
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5435:5432"
+    environment:
+      - POSTGRES_DB=app_db
+      - POSTGRES_USER=app_user
+      - POSTGRES_PASSWORD=app_password
+    volumes:
+      - db-data-slave-2:/var/lib/postgresql/data
+    command: |
+      bash -c "
+      if [ ! -f /var/lib/postgresql/data/postgresql.conf ]; then
+        echo 'Initializing replica2...'
+        rm -rf /var/lib/postgresql/data/* 2>/dev/null || true
+        
+        PGPASSWORD=replicatorpass pg_basebackup -h postgres-master -D /var/lib/postgresql/data -U replicator -v -P -R
+        echo 'application_name = replica2' >> /var/lib/postgresql/data/postgresql.auto.conf
+        
+        chown -R postgres:postgres /var/lib/postgresql/data
+        chmod 700 /var/lib/postgresql/data
+      fi
+      
+      exec docker-entrypoint.sh postgres
+      "
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app_user -d app_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    depends_on:
+      postgres-master:
+        condition: service_healthy
+    networks:
+      - otus
+
+  backend:
+    build:
+      context: ./src
+      dockerfile: Dockerfile
+    environment:
+      - GIN_MODE=release
+    volumes:
+      - ./app.yaml:/app/config.yaml
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres-master:
+        condition: service_healthy
+      postgres-slave-1:
+        condition: service_healthy
+      postgres-slave-2:
+        condition: service_healthy
+    networks:
+      - otus
 
 networks:
   otus:
@@ -56,3 +126,5 @@ networks:
 
 volumes:
   db-data:
+  db-data-slave-1:
+  db-data-slave-2:

@@ -1,11 +1,12 @@
 package handlers
 
 import (
-	"github.com/gin-gonic/gin"
 	"net/http"
 	"social/models"
 	"social/services"
 	"time"
+
+	"github.com/gin-gonic/gin"
 )
 
 type LoginRequest struct {
@@ -54,8 +55,8 @@ func Register(c *gin.Context) {
 
 	newUser := models.User{
 		Nickname:  registerRequest.Nickname,
-		Firstname: registerRequest.Firstname,
-		Lastname:  registerRequest.Lastname,
+		FirstName: registerRequest.Firstname,
+		LastName:  registerRequest.Lastname,
 		Password:  registerRequest.Password,
 		Sex:       registerRequest.Sex,
 		City:      registerRequest.City,
