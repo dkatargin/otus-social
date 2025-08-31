@@ -68,7 +68,7 @@ func ConnectDB() (err error) {
 		}
 	}
 
-	err = db.AutoMigrate(&models.User{}, &models.Migration{}, &models.UserTokens{}, &models.WriteTransaction{}, &models.Interest{}, &models.UserInterest{})
+	err = db.AutoMigrate(&models.User{}, &models.Migration{}, &models.UserTokens{}, &models.WriteTransaction{}, &models.Interest{}, &models.UserInterest{}, &models.Friend{}, &models.Post{})
 
 	ORM = db
 	return nil

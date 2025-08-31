@@ -14,11 +14,19 @@ type DBConfig struct {
 	DBName   string `yaml:"dbname"`
 }
 
+type RedisConfig struct {
+	Host     string `yaml:"host"`
+	Port     int    `yaml:"port"`
+	Password string `yaml:"password"`
+	DB       int    `yaml:"db"`
+}
+
 type Config struct {
 	Databases struct {
 		Master   DBConfig   `yaml:"master"`
 		Replicas []DBConfig `yaml:"replicas"`
 	} `yaml:"db"`
+	Redis   RedisConfig `yaml:"redis"`
 	Backend struct {
 		Host string `yaml:"host"`
 		Port int    `yaml:"port"`

@@ -1,11 +1,13 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"log"
 	"social/api/routes"
 	"social/config"
 	"social/db"
+	"social/services"
 
 	"github.com/gin-gonic/gin"
 )
@@ -24,6 +26,20 @@ func main() {
 	err = db.ConnectDB()
 	if err != nil {
 		panic("Failed to connect to the database: " + err.Error())
+	}
+
+	// Инициализируем Redis
+	err = services.InitRedis()
+	if err != nil {
+		panic("Failed to connect to Redis: " + err.Error())
+	}
+	defer services.CloseRedis()
+
+	// Запускаем воркеры очереди
+	ctx := context.Background()
+	if services.QueueServiceInstance != nil {
+		services.QueueServiceInstance.StartWorkers(ctx)
+		log.Println("Queue workers started")
 	}
 
 	router := gin.Default()
