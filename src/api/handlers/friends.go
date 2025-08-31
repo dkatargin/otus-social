@@ -2,7 +2,7 @@ package handlers
 
 import (
 	"net/http"
-	"social/api/services"
+	"social/services"
 
 	"github.com/gin-gonic/gin"
 )
@@ -11,8 +11,14 @@ var friendService = services.NewFriendService()
 
 // AddFriend - обработчик для добавления друга
 func AddFriend(c *gin.Context) {
+	// Получаем user_id из контекста (устанавливается middleware)
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
 	type req struct {
-		UserID   int64 `json:"user_id"`
 		FriendID int64 `json:"friend_id"`
 	}
 	var r req
@@ -20,7 +26,8 @@ func AddFriend(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
 		return
 	}
-	if err := friendService.AddFriend(r.UserID, r.FriendID); err != nil {
+
+	if err := friendService.AddFriend(userID.(int64), r.FriendID); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -29,8 +36,14 @@ func AddFriend(c *gin.Context) {
 
 // ApproveFriend - обработчик для подтверждения дружбы
 func ApproveFriend(c *gin.Context) {
+	// Получаем user_id из контекста (устанавливается middleware)
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
 	type req struct {
-		UserID   int64 `json:"user_id"`
 		FriendID int64 `json:"friend_id"`
 	}
 	var r req
@@ -38,7 +51,8 @@ func ApproveFriend(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
 		return
 	}
-	if err := friendService.ApproveFriend(r.UserID, r.FriendID); err != nil {
+
+	if err := friendService.ApproveFriend(userID.(int64), r.FriendID); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -47,8 +61,14 @@ func ApproveFriend(c *gin.Context) {
 
 // DeleteFriend - обработчик для удаления друга
 func DeleteFriend(c *gin.Context) {
+	// Получаем user_id из контекста (устанавливается middleware)
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
 	type req struct {
-		UserID   int64 `json:"user_id"`
 		FriendID int64 `json:"friend_id"`
 	}
 	var r req
@@ -56,7 +76,8 @@ func DeleteFriend(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
 		return
 	}
-	if err := friendService.DeleteFriend(r.UserID, r.FriendID); err != nil {
+
+	if err := friendService.DeleteFriend(userID.(int64), r.FriendID); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -65,13 +86,13 @@ func DeleteFriend(c *gin.Context) {
 
 // GetFriends - обработчик для получения списка друзей
 func GetFriends(c *gin.Context) {
-	userID := c.GetInt64("user_id") // Предполагаем, что ID извлекается из JWT токена
-	if userID == 0 {
+	userID, exists := c.Get("user_id")
+	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
 
-	friends, err := friendService.GetFriends(userID)
+	friends, err := friendService.GetFriends(userID.(int64))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -82,13 +103,13 @@ func GetFriends(c *gin.Context) {
 
 // GetPendingRequests - обработчик для получения входящих заявок в друзья
 func GetPendingRequests(c *gin.Context) {
-	userID := c.GetInt64("user_id") // Предполагаем, что ID извлекается из JWT токена
-	if userID == 0 {
+	userID, exists := c.Get("user_id")
+	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
 
-	requests, err := friendService.GetPendingRequests(userID)
+	requests, err := friendService.GetPendingRequests(userID.(int64))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
