@@ -278,7 +278,11 @@ func (ps *PostService) addPostToUserFeed(ctx context.Context, userID int64, post
 	})
 
 	// Кешируем данные поста
-	postData, _ := json.Marshal(post)
+	postData, err := json.Marshal(post)
+	if err != nil {
+		fmt.Println("failed to marshal post for caching:", err)
+		return
+	}
 	pipe.Set(ctx, postKey, postData, FEED_CACHE_TTL)
 
 	// Ограничиваем размер ленты
