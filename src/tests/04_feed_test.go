@@ -17,55 +17,16 @@ import (
 	"social/services"
 
 	"github.com/gin-gonic/gin"
-	"github.com/go-redis/redis/v8"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
 )
-
-// TestRedisClient для тестирования
-var TestRedisClient *redis.Client
-
-func setupFeedTestDB() error {
-	// Инициализируем тестовую базу данных SQLite в памяти
-	database, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
-	if err != nil {
-		return err
-	}
-
-	// Автомиграция всех моделей включая Post
-	err = database.AutoMigrate(&models.User{}, &models.Friend{}, &models.Post{})
-	if err != nil {
-		return err
-	}
-
-	// Устанавливаем глобальную переменную ORM
-	db.ORM = database
-	return nil
-}
-
-func setupTestRedis() {
-	// Настраиваем тестовый Redis клиент
-	TestRedisClient = redis.NewClient(&redis.Options{
-		Addr: "localhost:6379",
-		DB:   1, // Используем тестовую БД
-	})
-
-	// Очищаем тестовую БД
-	TestRedisClient.FlushDB(context.Background())
-
-	// Устанавливаем глобальный клиент для тестов
-	services.RedisClient = TestRedisClient
-	services.QueueServiceInstance = services.NewQueueService()
-}
 
 func setupFeedRouter() *gin.Engine {
 	// Инициализируем тестовую базу данных и Redis
-	if err := setupFeedTestDB(); err != nil {
+	if err := SetupFeedTestDB(); err != nil {
 		panic(err)
 	}
-	setupTestRedis()
+	SetupTestRedis()
 
 	r := gin.Default()
 
@@ -505,7 +466,7 @@ func TestFeedWithoutRedis(t *testing.T) {
 	// Отключаем Redis
 	services.RedisClient = nil
 	defer func() {
-		setupTestRedis() // Восстанавливаем для других тестов
+		SetupTestRedis() // Восстанавливаем для других тестов
 	}()
 
 	user1 := createTestUser(t, "User", "One")

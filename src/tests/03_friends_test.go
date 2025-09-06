@@ -29,7 +29,20 @@ func setupTestDB() error {
 		return err
 	}
 
-	// Устанавливаем глобальную переменную ORM
+	// Создаем тестовых пользователей
+	testUsers := []models.User{
+		{ID: 1, Nickname: "user1", FirstName: "Test", LastName: "User1"},
+		{ID: 2, Nickname: "user2", FirstName: "Test", LastName: "User2"},
+	}
+
+	for _, user := range testUsers {
+		err = database.Create(&user).Error
+		if err != nil {
+			return err
+		}
+	}
+
+	// Устанавливаем глобальную пере��енную ORM
 	db.ORM = database
 	return nil
 }
@@ -41,6 +54,12 @@ func setupRouter() *gin.Engine {
 	}
 
 	r := gin.Default()
+	// Мидлвар для тестов: всегда устанавливаем user_id=1
+	r.Use(func(c *gin.Context) {
+		c.Set("user_id", int64(1))
+		c.Next()
+	})
+
 	r.POST("/api/v1/friends/add", handlers.AddFriend)
 	r.POST("/api/v1/friends/approve", handlers.ApproveFriend)
 	r.POST("/api/v1/friends/delete", handlers.DeleteFriend)
@@ -80,14 +99,15 @@ func TestAddFriendSelf(t *testing.T) {
 func TestAddFriendInvalidID(t *testing.T) {
 	r := setupRouter()
 
-	body := map[string]int64{"user_id": 0, "friend_id": 2}
+	// Тестируем случай с несуществующим friend_id
+	body := map[string]int64{"friend_id": 999}
 	jsonBody, _ := json.Marshal(body)
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest("POST", "/api/v1/friends/add", bytes.NewBuffer(jsonBody))
 	req.Header.Set("Content-Type", "application/json")
 	r.ServeHTTP(w, req)
 	if w.Code == http.StatusOK {
-		t.Errorf("expected error for invalid user ID, got 200")
+		t.Errorf("expected error for non-existent friend ID, got 200")
 	}
 }
 
@@ -115,23 +135,47 @@ func TestAddFriendDuplicate(t *testing.T) {
 }
 
 func TestApproveFriend(t *testing.T) {
-	r := setupRouter()
+	// Инициализируем базу данных один раз
+	if err := setupTestDB(); err != nil {
+		panic(err)
+	}
 
-	// Сначала создаём заявку
-	body := map[string]int64{"user_id": 1, "friend_id": 2}
+	// Создаем роутер для пользователя 1 (отправителя заявки)
+	r1 := gin.Default()
+	r1.Use(func(c *gin.Context) {
+		c.Set("user_id", int64(1))
+		c.Next()
+	})
+	r1.POST("/api/v1/friends/add", handlers.AddFriend)
+
+	// Создаем заявку от пользователя 1 к пользователю 2
+	body := map[string]int64{"friend_id": 2}
 	jsonBody, _ := json.Marshal(body)
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest("POST", "/api/v1/friends/add", bytes.NewBuffer(jsonBody))
 	req.Header.Set("Content-Type", "application/json")
-	r.ServeHTTP(w, req)
+	r1.ServeHTTP(w, req)
 
-	// Подтверждаем дружбу
-	approveBody := map[string]int64{"user_id": 2, "friend_id": 1}
+	if w.Code != http.StatusOK {
+		t.Errorf("failed to create friend request, got %d", w.Code)
+		return
+	}
+
+	// Создаем роутер для пользователя 2 (получателя заявки)
+	r2 := gin.Default()
+	r2.Use(func(c *gin.Context) {
+		c.Set("user_id", int64(2)) // Устанавливаем user_id=2
+		c.Next()
+	})
+	r2.POST("/api/v1/friends/approve", handlers.ApproveFriend)
+
+	// Подтверждаем дружбу от имени пользователя 2
+	approveBody := map[string]int64{"friend_id": 1}
 	jsonApprove, _ := json.Marshal(approveBody)
 	w2 := httptest.NewRecorder()
 	approveReq, _ := http.NewRequest("POST", "/api/v1/friends/approve", bytes.NewBuffer(jsonApprove))
 	approveReq.Header.Set("Content-Type", "application/json")
-	r.ServeHTTP(w2, approveReq)
+	r2.ServeHTTP(w2, approveReq)
 
 	if w2.Code != http.StatusOK {
 		t.Errorf("expected 200, got %d", w2.Code)
@@ -166,7 +210,7 @@ func TestAddFriendInvalidRequest(t *testing.T) {
 	r := setupRouter()
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("POST", "/api/v1/friends/add", bytes.NewBuffer([]byte(`{"user_id": "bad"}`)))
+	req, _ := http.NewRequest("POST", "/api/v1/friends/add", bytes.NewBuffer([]byte(`{"friend_id": "invalid_id"}`)))
 	req.Header.Set("Content-Type", "application/json")
 	r.ServeHTTP(w, req)
 	if w.Code != http.StatusBadRequest {

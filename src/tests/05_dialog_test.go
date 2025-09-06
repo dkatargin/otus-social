@@ -8,17 +8,34 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"social/api/handlers"
+	"social/db"
+	"social/models"
 	"testing"
 )
 
 func TestSendAndListDialog(t *testing.T) {
+	// Инициализируем тестовую базу данных
+	if err := SetupFeedTestDB(); err != nil {
+		panic(err)
+	}
+
+	// Создаем записи в shard_maps для пользователей
+	shardMap1 := &models.ShardMap{UserID: 1, ShardID: 1}
+	shardMap2 := &models.ShardMap{UserID: 2, ShardID: 1}
+	db.ORM.Create(shardMap1)
+	db.ORM.Create(shardMap2)
+
+	// Создаем таблицу messages_1 для шарда 1
+	db.ORM.Exec("CREATE TABLE IF NOT EXISTS messages_1 (id INTEGER PRIMARY KEY AUTOINCREMENT, from_user_id INTEGER, to_user_id INTEGER, text TEXT, created_at DATETIME, is_read BOOLEAN)")
+
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
+
+	// Авторизация (эмулируем user_id=1) - добавляем middleware ДО роутов
+	r.Use(func(c *gin.Context) { c.Set("user_id", int64(1)); c.Next() })
+
 	r.POST("/api/v1/dialog/:user_id/send", handlers.SendMessageHandler)
 	r.GET("/api/v1/dialog/:user_id/list", handlers.ListDialogHandler)
-
-	// Авторизация (эмулируем user_id=1)
-	r.Use(func(c *gin.Context) { c.Set("user_id", int64(1)) })
 
 	// Отправка сообщения
 	msg := map[string]string{"text": "Hello, user 2!"}

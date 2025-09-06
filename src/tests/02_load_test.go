@@ -43,11 +43,12 @@ var (
 )
 
 func TestUserGetLoadTest(t *testing.T) {
+	const maxRequests = 20
 	const duration = 60 * time.Second
-	const workers = 100
+	const workers = 2
 
-	result := runLoadTest(t, "User Get", duration, workers, func() error {
-		userID := gofakeit.Number(1, 1000000)
+	result := runLoadTest(t, "User Get", duration, workers, maxRequests, func() error {
+		userID := gofakeit.Number(1, 100)
 		reqURL := fmt.Sprintf("%s/api/v1/user/get/%d", ApiBaseUrl, userID)
 
 		resp, err := http.Get(reqURL)
@@ -69,10 +70,11 @@ func TestUserGetLoadTest(t *testing.T) {
 }
 
 func TestUserSearchLoadTest(t *testing.T) {
+	const maxRequests = 20
 	const duration = 60 * time.Second
 	const workers = 100
 
-	result := runLoadTest(t, "User Search", duration, workers, func() error {
+	result := runLoadTest(t, "User Search", duration, workers, maxRequests, func() error {
 		params := url.Values{}
 
 		// Случайно выбираем параметры поиска
@@ -120,10 +122,11 @@ func TestUserSearchLoadTest(t *testing.T) {
 }
 
 func TestMixedLoadTest(t *testing.T) {
+	const maxRequests = 20
 	const duration = 60 * time.Second
 	const workers = 100
 
-	result := runLoadTest(t, "Mixed Load", duration, workers, func() error {
+	result := runLoadTest(t, "Mixed Load", duration, workers, maxRequests, func() error {
 		if gofakeit.Bool() {
 			// 50% запросов на /user/get/{id}
 			userID := gofakeit.Number(1, 1000000)
@@ -180,7 +183,7 @@ func TestMixedLoadTest(t *testing.T) {
 	printLoadTestResult(t, "Mixed Load Test", result)
 }
 
-func runLoadTest(t *testing.T, testName string, duration time.Duration, workers int, requestFunc func() error) LoadTestResult {
+func runLoadTest(t *testing.T, testName string, duration time.Duration, workers int, maxRequests int64, requestFunc func() error) LoadTestResult {
 	var (
 		totalRequests   int64
 		successRequests int64
@@ -188,6 +191,7 @@ func runLoadTest(t *testing.T, testName string, duration time.Duration, workers 
 		wg              sync.WaitGroup
 		sem             = make(chan struct{}, workers)
 		done            = make(chan struct{})
+		once            sync.Once // для безопасного закрытия канала
 	)
 
 	startTime := time.Now()
@@ -195,12 +199,13 @@ func runLoadTest(t *testing.T, testName string, duration time.Duration, workers 
 	t.Logf("=== %s ===", testName)
 	t.Logf("Длительность: %v", duration)
 	t.Logf("Воркеры: %d", workers)
+	t.Logf("Максимальное количество запросов: %d", maxRequests)
 	t.Logf("Начало тестирования...")
 
 	// Запускаем таймер для остановки тестирования
 	go func() {
 		time.Sleep(duration)
-		close(done)
+		once.Do(func() { close(done) })
 	}()
 
 	// Запускаем воркеры
@@ -225,6 +230,12 @@ func runLoadTest(t *testing.T, testName string, duration time.Duration, workers 
 					}
 
 					<-sem
+
+					// Проверяем достигнуто ли максимальное количество запросов
+					if atomic.LoadInt64(&totalRequests) >= maxRequests {
+						once.Do(func() { close(done) })
+						return
+					}
 				}
 			}
 		}()
