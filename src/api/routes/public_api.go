@@ -21,6 +21,8 @@ func PublicApi(router *gin.Engine) *gin.RouterGroup {
 		authenticated := publicEndpoints.Group("/")
 		authenticated.Use(middleware.TestAuthMiddleware())
 		{
+			// WebSocket для ленты
+			authenticated.GET("ws/feed", handlers.WSFeedHandler)
 			// Друзья
 			authenticated.POST("friends/add", handlers.AddFriend)
 			authenticated.POST("friends/approve", handlers.ApproveFriend)
