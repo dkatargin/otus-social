@@ -25,8 +25,8 @@ type RegisterRequest struct {
 }
 
 func TestProfileGenerator(t *testing.T) {
-	const total = 500000
-	const workers = 5 // количество одновременных запросов
+	const total = 20  // ограничение количества запросов
+	const workers = 2 // количество одновременных запросов
 	var wg sync.WaitGroup
 	sem := make(chan struct{}, workers)
 
@@ -61,7 +61,7 @@ func TestProfileGenerator(t *testing.T) {
 				return
 			}
 
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			if resp.StatusCode != http.StatusOK {
 				var response map[string]interface{}

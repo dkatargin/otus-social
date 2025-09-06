@@ -8,7 +8,12 @@ import (
 )
 
 func TestShardMapAndSharding(t *testing.T) {
-	// Добавляем пользователя с кастомным шардингом
+	// Инициализируем тестовую базу данных
+	if err := SetupFeedTestDB(); err != nil {
+		panic(err)
+	}
+
+	// ��обавляем пользователя с кастомным шардингом
 	userID := int64(100500)
 	customShard := 3
 	shardMap := models.ShardMap{UserID: userID, ShardID: customShard}
