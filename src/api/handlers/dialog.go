@@ -71,10 +71,14 @@ func ListDialogHandler(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user_id"})
 		return
 	}
-	// Получаем shard для обоих пользователей (ищем в обоих шардах)
-	shardIDs := []int{getShardID(userID.(int64)), getShardID(otherUserID)}
+	// Получаем shard для обоих пользователей (ищем в обоих шардах, но без дубликатов)
+	shardID1 := getShardID(userID.(int64))
+	shardID2 := getShardID(otherUserID)
+	shardIDMap := make(map[int]struct{})
+	shardIDMap[shardID1] = struct{}{}
+	shardIDMap[shardID2] = struct{}{}
 	var messages []models.Message
-	for _, shardID := range shardIDs {
+	for shardID := range shardIDMap {
 		tableName := "messages_" + strconv.Itoa(shardID)
 		var part []models.Message
 		db.ORM.Table(tableName).
