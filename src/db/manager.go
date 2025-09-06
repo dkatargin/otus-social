@@ -76,10 +76,25 @@ func ConnectDB() (err error) {
 
 // GetReadOnlyDB возвращает подключение для чтения (слейвы)
 func GetReadOnlyDB(ctx context.Context) *gorm.DB {
+	if ORM == nil {
+		return nil
+	}
+	// В тестовой среде (SQLite) dbresolver может не работать
+	// Проверяем, используется ли dbresolver
+	if ORM.Dialector.Name() == "sqlite" {
+		return ORM.WithContext(ctx)
+	}
 	return ORM.WithContext(ctx).Clauses(dbresolver.Read)
 }
 
 // GetWriteDB возвращает подключение для записи (мастер)
 func GetWriteDB(ctx context.Context) *gorm.DB {
+	if ORM == nil {
+		return nil
+	}
+	// В тестовой среде (SQLite) dbresolver может не работать
+	if ORM.Dialector.Name() == "sqlite" {
+		return ORM.WithContext(ctx)
+	}
 	return ORM.WithContext(ctx).Clauses(dbresolver.Write)
 }

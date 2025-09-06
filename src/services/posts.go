@@ -131,6 +131,11 @@ func (ps *PostService) buildFeedFromDB(ctx context.Context, userID int64, lastID
 
 // getFeedFromCache получает ленту из Redis кеша
 func (ps *PostService) getFeedFromCache(ctx context.Context, feedKey string, lastID int64, limit int) ([]models.FeedPost, error) {
+	// Если Redis не инициализирован, возвращаем ошибку чтобы fallback к БД
+	if RedisClient == nil {
+		return nil, fmt.Errorf("redis not available")
+	}
+
 	// Используем Redis Sorted Set для хранения ленты (score = timestamp)
 	var start, stop int64 = 0, int64(limit - 1)
 
@@ -189,6 +194,10 @@ func (ps *PostService) getFeedFromCache(ctx context.Context, feedKey string, las
 
 // cacheFeed кеширует ленту в Redis
 func (ps *PostService) cacheFeed(ctx context.Context, feedKey string, posts []models.FeedPost) {
+	if RedisClient == nil {
+		return // В тестах Redis может быть не инициализирован
+	}
+
 	if len(posts) == 0 {
 		return
 	}
@@ -265,6 +274,11 @@ func (ps *PostService) updateFriendsFeeds(ctx context.Context, userID int64, pos
 
 // addPostToUserFeed добавляет пост в ленту конкретного пользователя
 func (ps *PostService) addPostToUserFeed(ctx context.Context, userID int64, post models.FeedPost) {
+	// Если Redis не инициализирован (например, в тестах), просто пропускаем кеширование
+	if RedisClient == nil {
+		return
+	}
+
 	feedKey := fmt.Sprintf("%s%d", FEED_KEY_PREFIX, userID)
 	postKey := fmt.Sprintf("%s%d", POST_KEY_PREFIX, post.ID)
 
@@ -296,12 +310,19 @@ func (ps *PostService) addPostToUserFeed(ctx context.Context, userID int64, post
 
 // InvalidateUserFeed инвалидирует кеш ленты пользователя
 func (ps *PostService) InvalidateUserFeed(ctx context.Context, userID int64) error {
+	if RedisClient == nil {
+		return nil // В тестах Redis может быть не инициализирован
+	}
 	feedKey := fmt.Sprintf("%s%d", FEED_KEY_PREFIX, userID)
 	return RedisClient.Del(ctx, feedKey).Err()
 }
 
 // RebuildUserFeedFromDB перестраивает кеш ленты пользователя из БД
 func (ps *PostService) RebuildUserFeedFromDB(ctx context.Context, userID int64) error {
+	if RedisClient == nil {
+		return nil // В тестах Redis может быть не инициализирован
+	}
+
 	feedKey := fmt.Sprintf("%s%d", FEED_KEY_PREFIX, userID)
 
 	// Удаляем старый кеш

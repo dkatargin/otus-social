@@ -1,7 +1,12 @@
 package models
 
-// ShardMap - маппинг user_id -> shard_id для поддержки решардинга
+// ShardMap представляет маппинг пользователей на шарды
 type ShardMap struct {
-	UserID  int64 `gorm:"primaryKey;uniqueIndex" json:"user_id"`
-	ShardID int   `gorm:"index" json:"shard_id"`
+	UserID  int64 `gorm:"primaryKey" json:"user_id"`
+	ShardID int   `gorm:"not null" json:"shard_id"`
+}
+
+// TableName возвращает имя таблицы для модели ShardMap
+func (ShardMap) TableName() string {
+	return "shard_map"
 }

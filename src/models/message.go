@@ -1,13 +1,20 @@
 package models
 
-import "time"
+import (
+	"time"
+)
 
-// Message - сообщение между пользователями (используется для шардинга)
+// Message представляет сообщение в диалоге между пользователями
 type Message struct {
 	ID         int64     `gorm:"primaryKey;autoIncrement" json:"id"`
-	FromUserID int64     `gorm:"index" json:"from_user_id"`
-	ToUserID   int64     `gorm:"index" json:"to_user_id"`
-	Text       string    `gorm:"type:text" json:"text"`
-	CreatedAt  time.Time `gorm:"index" json:"created_at"`
-	IsRead     bool      `gorm:"index" json:"is_read"`
+	FromUserID int64     `gorm:"column:from_user_id;index" json:"from_id"`
+	ToUserID   int64     `gorm:"column:to_user_id;index" json:"to_id"`
+	Text       string    `gorm:"type:text;not null" json:"text"`
+	CreatedAt  time.Time `gorm:"autoCreateTime" json:"created_at"`
+	IsRead     bool      `gorm:"default:false" json:"is_read"`
+}
+
+// TableName возвращает имя таблицы для модели Message
+func (Message) TableName() string {
+	return "messages"
 }
