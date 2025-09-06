@@ -68,7 +68,7 @@ func ConnectDB() (err error) {
 		}
 	}
 
-	err = db.AutoMigrate(&models.User{}, &models.Migration{}, &models.UserTokens{}, &models.WriteTransaction{}, &models.Interest{}, &models.UserInterest{}, &models.Friend{}, &models.Post{})
+	err = db.AutoMigrate(&models.User{}, &models.Migration{}, &models.UserTokens{}, &models.WriteTransaction{}, &models.Interest{}, &models.UserInterest{}, &models.Friend{}, &models.Post{}, &models.Message{}, &models.ShardMap{})
 
 	ORM = db
 	return nil
@@ -76,10 +76,25 @@ func ConnectDB() (err error) {
 
 // GetReadOnlyDB возвращает подключение для чтения (слейвы)
 func GetReadOnlyDB(ctx context.Context) *gorm.DB {
+	if ORM == nil {
+		return nil
+	}
+	// В тестовой среде (SQLite) dbresolver может не работать
+	// Проверяем, используется ли dbresolver
+	if ORM.Dialector.Name() == "sqlite" {
+		return ORM.WithContext(ctx)
+	}
 	return ORM.WithContext(ctx).Clauses(dbresolver.Read)
 }
 
 // GetWriteDB возвращает подключение для записи (мастер)
 func GetWriteDB(ctx context.Context) *gorm.DB {
+	if ORM == nil {
+		return nil
+	}
+	// В тестовой среде (SQLite) dbresolver может не работать
+	if ORM.Dialector.Name() == "sqlite" {
+		return ORM.WithContext(ctx)
+	}
 	return ORM.WithContext(ctx).Clauses(dbresolver.Write)
 }

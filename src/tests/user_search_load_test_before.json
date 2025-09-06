@@ -1,0 +1,9 @@
+{
+  "TotalRequests": 100,
+  "SuccessRequests": 64,
+  "FailedRequests": 36,
+  "TotalDuration": 4187331833,
+  "RequestsPerSec": 23.881556081108418,
+  "TestName": "user_search_load_test",
+  "Timestamp": "2025-09-06T15:55:35.580652+03:00"
+}

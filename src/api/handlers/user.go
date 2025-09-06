@@ -129,7 +129,7 @@ func UserRegister(c *gin.Context) {
 		LastName:  req.LastName,
 		Password:  req.Password,
 		Birthday:  birthday,
-		Sex:       req.Sex,
+		Sex:       models.Sex(req.Sex),
 		City:      req.City,
 	}
 

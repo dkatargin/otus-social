@@ -12,242 +12,83 @@
         "domain": {
           "description": "Домен",
           "default": "localhost",
-          "enum": [
-            "localhost",
-            "social.katargin.net"
-          ]
+          "enum": ["localhost", "social.katargin.net"]
         },
         "apiVersion": {
           "default": "v1",
-          "enum": [
-            "v1"
-          ]
+          "enum": ["v1"]
         }
       },
       "description": "API сервер"
     }
   ],
   "paths": {
-    "/auth/register": {
+    "/auth/register": { ... },
+    "/auth/login": { ... },
+    "/auth/logout": { ... },
+    "/user/get/{userId}": { ... },
+    "/dialog/{user_id}/send": {
       "post": {
-        "summary": "Регистрация пользователя",
-        "description": "Регистрация нового пользователя в системе",
-        "operationId": "registerUser",
-        "tags": [
-          "auth"
-        ],
+        "summary": "Отправка личного сообщения",
+        "description": "Отправляет сообщение от текущего пользователя к user_id (шардированное хранение)",
+        "operationId": "sendDialogMessage",
+        "tags": ["dialog"],
         "requestBody": {
-          "$ref": "#/components/schemas/RegisterUserRequest"
-        },
-        "responses": {
-          "200": {
-            "$ref": "#/components/schemas/RegisterUserResponse"
-          }
-        }
-      }
-    },
-    "/auth/login": {
-      "post": {
-        "summary": "Авторизация пользователя",
-        "description": "Авторизация пользователя в системе",
-        "operationId": "loginUser",
-        "tags": [
-          "auth"
-        ],
-        "requestBody": {
-          "$ref": "#/components/schemas/LoginUserRequest"
-        },
-        "responses": {
-          "200": {
-            "$ref": "#/components/schemas/LoginUserResponse"
-          }
-        }
-      }
-    },
-    "/auth/logout": {
-      "post": {
-        "summary": "Выход пользователя",
-        "description": "Выход пользователя из системы",
-        "operationId": "logoutUser",
-        "tags": [
-          "auth"
-        ],
-        "responses": {
-          "200": {
-            "$ref": "#/components/schemas/LogoutUserResponse"
-          }
-        }
-      }
-    },
-    "/user/get/{userId}": {
-      "get": {
-        "summary": "Получение информации о пользователе",
-        "description": "Получение информации о пользователе по его ID",
-        "operationId": "getUser",
-        "tags": [
-          "user"
-        ],
-        "parameters": [
-          {
-            "name": "userId",
-            "in": "path",
-            "required": true,
-            "description": "ID пользователя",
-            "schema": {
-              "type": "string"
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "to": { "type": "integer", "description": "ID получателя" },
+                  "text": { "type": "string", "description": "Текст сообщения" }
+                },
+                "required": ["to", "text"]
+              }
             }
           }
+        },
+        "responses": {
+          "200": {
+            "description": "Сообщение отправлено"
+          }
+        }
+      }
+    },
+    "/dialog/{user_id}/list": {
+      "get": {
+        "summary": "Получение диалога с пользователем",
+        "description": "Получает список сообщений между текущим пользователем и user_id (с пагинацией, шардированное хранение)",
+        "operationId": "getDialogMessages",
+        "tags": ["dialog"],
+        "parameters": [
+          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "integer" }, "description": "ID собеседника" },
+          { "name": "limit", "in": "query", "required": false, "schema": { "type": "integer", "default": 50 }, "description": "Лимит сообщений" },
+          { "name": "offset", "in": "query", "required": false, "schema": { "type": "integer", "default": 0 }, "description": "Смещение для пагинации" }
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/schemas/GetUserResponse"
+            "description": "Список сообщений",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": { "type": "integer" },
+                      "from_id": { "type": "integer" },
+                      "to_id": { "type": "integer" },
+                      "text": { "type": "string" },
+                      "created_at": { "type": "string", "format": "date-time" }
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
     }
   },
-  "components": {
-    "schemas": {
-      "RegisterUserRequest": {
-        "type": "object",
-        "properties": {
-          "nickname": {
-            "type": "string",
-            "description": "Уникальный никнейм пользователя",
-            "required": true
-          },
-          "password": {
-            "type": "string",
-            "description": "Пароль пользователя",
-            "required": true
-          },
-          "first_name": {
-            "type": "string",
-            "description": "Имя пользователя"
-          },
-          "last_name": {
-            "type": "string",
-            "description": "Фамилия пользователя"
-          },
-          "birthday": {
-            "type": "string",
-            "description": "Дата рождения",
-            "format": "date",
-            "required": true
-          },
-          "sex": {
-            "description": "Пол пользователя",
-            "enum": [
-              "male",
-              "female"
-            ],
-            "required": true
-          },
-          "interests": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "description": "Интересы пользователя"
-          },
-          "city": {
-            "type": "string",
-            "description": "Город проживания"
-          }
-        }
-      },
-      "RegisterUserResponse": {
-        "type": "object",
-        "properties": {
-          "status": {
-            "type": "string",
-            "description": "Статус регистрации",
-            "enum": [
-              "idle",
-              "success",
-              "error"
-            ]
-          },
-          "userId": {
-            "type": "string",
-            "description": "ID пользователя"
-          }
-        }
-      },
-      "LoginUserRequest": {
-        "type": "object",
-        "properties": {
-          "nickname": {
-            "type": "string",
-            "description": "Уникальный никнейм пользователя",
-            "required": true
-          },
-          "password": {
-            "type": "string",
-            "description": "Пароль пользователя",
-            "required": true
-          }
-        }
-      },
-      "LoginUserResponse": {
-        "type": "object",
-        "properties": {
-          "status": {
-            "type": "string",
-            "description": "Статус авторизации",
-            "enum": [
-              "success",
-              "error"
-            ]
-          },
-          "user_id": {
-            "type": "string",
-            "description": "ID пользователя"
-          },
-          "token": {
-            "type": "string",
-            "description": "Токен авторизации"
-          }
-        }
-      },
-      "LogoutUserResponse": {
-        "type": "object",
-        "properties": {
-          "status": {
-            "type": "string",
-            "description": "Статус авторизации",
-            "enum": [
-              "success",
-              "error"
-            ]
-          }}
-        },
-      "GetUserResponse": {
-        "type": "object",
-        "properties": {
-          "nickname": {
-            "type": "string",
-            "description": "Уникальный никнейм пользователя"
-          },
-          "first_name": {
-            "type": "string",
-            "description": "Имя пользователя"
-          },
-          "last_name": {
-            "type": "string",
-            "description": "Фамилия пользователя"
-          },
-          "birth_date": {
-            "type": "string",
-            "description": "Дата рождения",
-            "format": "date"
-          },
-          "city": {
-            "type": "string",
-            "description": "Город проживания"
-          }
-        }
-      }
-    }
-  }
+  "components": { ... }
 }
