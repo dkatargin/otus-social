@@ -11,6 +11,9 @@ import (
 )
 
 const NumShards = 4 // Можно вынести в конфиг
+var req struct {
+	Text string `json:"text" binding:"required"`
+}
 
 // getShardID возвращает номер шарда для пользователя
 func getShardID(userID int64) int {
@@ -35,9 +38,7 @@ func SendMessageHandler(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user_id"})
 		return
 	}
-	var req struct {
-		Text string `json:"text" binding:"required"`
-	}
+
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
 		return
