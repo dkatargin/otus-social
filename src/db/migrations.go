@@ -20,7 +20,7 @@ func CreateShardedMessageTables(db *gorm.DB, shards int) error {
 			);
 		`, tableName)
 		if err := db.Exec(createTableSQL).Error; err != nil {
-			return fmt.Errorf("failed to create table %s: %%w", tableName, err)
+			return fmt.Errorf("failed to create table %s: %w", tableName, err)
 		}
 	}
 	return nil
