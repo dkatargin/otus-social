@@ -21,7 +21,7 @@ func TestShardMapAndSharding(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Проверяем, что getShardID возвращает правильный shard
-	shard := customShard
+	shard := models.GetShardID(userID)
 	assert.Equal(t, customShard, shard)
 
 	// Решардинг: меняем shard_id
