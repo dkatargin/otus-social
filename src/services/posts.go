@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"social/db"
 	"social/models"
 	"strconv"
@@ -27,6 +28,8 @@ func NewPostService() *PostService {
 
 // CreatePost создает новый пост и обновляет ленты друзей
 func (ps *PostService) CreatePost(ctx context.Context, userID int64, content string) (*models.Post, error) {
+	log.Printf("DEBUG: CreatePost called for userID=%d, content=%s", userID, content)
+
 	post := &models.Post{
 		UserID:    userID,
 		Content:   content,
@@ -37,13 +40,18 @@ func (ps *PostService) CreatePost(ctx context.Context, userID int64, content str
 	// Сохраняем пост в БД
 	err := db.GetWriteDB(ctx).Create(post).Error
 	if err != nil {
+		log.Printf("ERROR: Failed to create post in DB: %v", err)
 		return nil, fmt.Errorf("failed to create post: %w", err)
 	}
 
+	log.Printf("DEBUG: Post created in DB with ID=%d", post.ID)
+
 	// Добавляем задачу обновления лент в очередь
-	if QueueServiceInstance != nil {
+	if QueueServiceInstance != nil && RedisClient != nil {
+		log.Printf("DEBUG: Using QueueService path")
 		go QueueServiceInstance.EnqueueFeedUpdate(context.Background(), userID, *post, "create")
 	} else {
+		log.Printf("DEBUG: Using fallback path - QueueServiceInstance=%v, RedisClient=%v", QueueServiceInstance != nil, RedisClient != nil)
 		// Fallback - обновляем ленты синхронно, если очередь не инициализирована
 		go ps.updateFriendsFeeds(context.Background(), userID, post)
 	}
@@ -109,9 +117,9 @@ func (ps *PostService) buildFeedFromDB(ctx context.Context, userID int64, lastID
 
 	// Строим запрос для получения постов
 	query := db.GetReadOnlyDB(ctx).
-		Table("post p").
+		Table("posts p").
 		Select("p.id, p.user_id, u.first_name || ' ' || u.last_name as user_name, p.content, p.created_at").
-		Joins("JOIN \"user\" u ON p.user_id = u.id").
+		Joins("JOIN \"users\" u ON p.user_id = u.id").
 		Where("p.user_id IN ?", friendIDs).
 		Order("p.created_at DESC, p.id DESC").
 		Limit(limit)
@@ -131,6 +139,10 @@ func (ps *PostService) buildFeedFromDB(ctx context.Context, userID int64, lastID
 
 // getFeedFromCache получает ленту из Redis кеша
 func (ps *PostService) getFeedFromCache(ctx context.Context, feedKey string, lastID int64, limit int) ([]models.FeedPost, error) {
+	if RedisClient == nil {
+		return nil, fmt.Errorf("redis not available")
+	}
+
 	// Используем Redis Sorted Set для хранения ленты (score = timestamp)
 	var start, stop int64 = 0, int64(limit - 1)
 
@@ -189,7 +201,7 @@ func (ps *PostService) getFeedFromCache(ctx context.Context, feedKey string, las
 
 // cacheFeed кеширует ленту в Redis
 func (ps *PostService) cacheFeed(ctx context.Context, feedKey string, posts []models.FeedPost) {
-	if len(posts) == 0 {
+	if len(posts) == 0 || RedisClient == nil {
 		return
 	}
 
@@ -223,6 +235,8 @@ func (ps *PostService) cacheFeed(ctx context.Context, feedKey string, posts []mo
 
 // updateFriendsFeeds обновляет ленты друзей при создании нового поста
 func (ps *PostService) updateFriendsFeeds(ctx context.Context, userID int64, post *models.Post) {
+	log.Printf("DEBUG: updateFriendsFeeds called for userID=%d, postID=%d", userID, post.ID)
+
 	// Получаем список друзей
 	var friends []models.Friend
 	err := db.GetReadOnlyDB(ctx).
@@ -230,12 +244,16 @@ func (ps *PostService) updateFriendsFeeds(ctx context.Context, userID int64, pos
 		Find(&friends).Error
 
 	if err != nil {
+		log.Printf("ERROR: Failed to get friends for userID=%d: %v", userID, err)
 		return
 	}
+
+	log.Printf("DEBUG: Found %d friends for userID=%d", len(friends), userID)
 
 	// Создаем FeedPost для кеширования
 	var user models.User
 	if err := db.GetReadOnlyDB(ctx).First(&user, userID).Error; err != nil {
+		log.Printf("ERROR: Failed to get user data for userID=%d: %v", userID, err)
 		return
 	}
 
@@ -256,15 +274,82 @@ func (ps *PostService) updateFriendsFeeds(ctx context.Context, userID int64, pos
 			friendID = friend.UserID
 		}
 
+		log.Printf("DEBUG: Processing friend userID=%d", friendID)
 		ps.addPostToUserFeed(ctx, friendID, feedPost)
+
+		// Публикуем событие в RabbitMQ для push feed
+		err := PublishFeedEvent(ctx, FeedEvent{
+			UserID:    friendID,
+			PostID:    post.ID,
+			AuthorID:  post.UserID,
+			Content:   post.Content,
+			CreatedAt: post.CreatedAt,
+		})
+
+		// Fallback: если RabbitMQ недоступен, отправляем напрямую через WebSocket
+		if err != nil {
+			log.Printf("DEBUG: RabbitMQ error, using fallback for friendID=%d: %v", friendID, err)
+			ps.sendDirectWSEvent(friendID, post.ID, post.UserID, post.Content, post.CreatedAt)
+		} else {
+			log.Printf("DEBUG: RabbitMQ event published successfully for friendID=%d", friendID)
+		}
 	}
 
 	// Добавляем в свою ленту тоже
 	ps.addPostToUserFeed(ctx, userID, feedPost)
+	// Публикуем событие для самого автора
+	err = PublishFeedEvent(ctx, FeedEvent{
+		UserID:    userID,
+		PostID:    post.ID,
+		AuthorID:  post.UserID,
+		Content:   post.Content,
+		CreatedAt: post.CreatedAt,
+	})
+
+	// Fallback для автора
+	if err != nil {
+		log.Printf("DEBUG: RabbitMQ error for author, using fallback for userID=%d: %v", userID, err)
+		ps.sendDirectWSEvent(userID, post.ID, post.UserID, post.Content, post.CreatedAt)
+	} else {
+		log.Printf("DEBUG: RabbitMQ event published successfully for author userID=%d", userID)
+	}
+}
+
+// sendDirectWSEvent отправляет WebSocket событие напрямую (fallback для RabbitMQ)
+func (ps *PostService) sendDirectWSEvent(userID, postID, authorID int64, content string, createdAt time.Time) {
+	log.Printf("DEBUG: sendDirectWSEvent called for userID=%d, postID=%d, authorID=%d", userID, postID, authorID)
+
+	pushMsg := struct {
+		Event     string    `json:"event"`
+		UserID    int64     `json:"user_id"`
+		PostID    int64     `json:"post_id"`
+		AuthorID  int64     `json:"author_id"`
+		Content   string    `json:"content"`
+		CreatedAt time.Time `json:"created_at"`
+	}{
+		Event:     "feed_posted",
+		UserID:    userID,
+		PostID:    postID,
+		AuthorID:  authorID,
+		Content:   content,
+		CreatedAt: createdAt,
+	}
+
+	if pushData, err := json.Marshal(pushMsg); err == nil {
+		log.Printf("DEBUG: Sending WebSocket message to userID=%d: %s", userID, string(pushData))
+		GlobalWSConnManager.Send(userID, pushData)
+		log.Printf("DEBUG: WebSocket message sent successfully")
+	} else {
+		log.Printf("ERROR: Failed to marshal push message: %v", err)
+	}
 }
 
 // addPostToUserFeed добавляет пост в ленту конкретного пользователя
 func (ps *PostService) addPostToUserFeed(ctx context.Context, userID int64, post models.FeedPost) {
+	if RedisClient == nil {
+		return
+	}
+
 	feedKey := fmt.Sprintf("%s%d", FEED_KEY_PREFIX, userID)
 	postKey := fmt.Sprintf("%s%d", POST_KEY_PREFIX, post.ID)
 
@@ -296,12 +381,19 @@ func (ps *PostService) addPostToUserFeed(ctx context.Context, userID int64, post
 
 // InvalidateUserFeed инвалидирует кеш ленты пользователя
 func (ps *PostService) InvalidateUserFeed(ctx context.Context, userID int64) error {
+	if RedisClient == nil {
+		return fmt.Errorf("redis not available")
+	}
 	feedKey := fmt.Sprintf("%s%d", FEED_KEY_PREFIX, userID)
 	return RedisClient.Del(ctx, feedKey).Err()
 }
 
 // RebuildUserFeedFromDB перестраивает кеш ленты пользователя из БД
 func (ps *PostService) RebuildUserFeedFromDB(ctx context.Context, userID int64) error {
+	if RedisClient == nil {
+		return fmt.Errorf("redis not available")
+	}
+
 	feedKey := fmt.Sprintf("%s%d", FEED_KEY_PREFIX, userID)
 
 	// Удаляем старый кеш
@@ -321,7 +413,7 @@ func (ps *PostService) RebuildUserFeedFromDB(ctx context.Context, userID int64) 
 
 // RebuildAllFeeds перестраивает кеши всех лент из БД
 func (ps *PostService) RebuildAllFeeds(ctx context.Context) error {
-	// Получаем всех пользователей
+	// П��лучаем всех пользователей
 	var userIDs []int64
 	err := db.GetReadOnlyDB(ctx).Model(&models.User{}).Pluck("id", &userIDs).Error
 	if err != nil {
@@ -355,8 +447,11 @@ func (ps *PostService) DeletePost(ctx context.Context, userID int64, postID int6
 	}
 
 	// Добавляем задачу удаления поста из лент в очередь
-	if QueueServiceInstance != nil {
+	if QueueServiceInstance != nil && RedisClient != nil {
 		go QueueServiceInstance.EnqueueFeedUpdate(context.Background(), userID, post, "delete")
+	} else {
+		// Fallback - удаляем из лент синхронно, если очередь не работает
+		ps.removePostFromAllFeeds(context.Background(), userID, postID)
 	}
 
 	return nil
@@ -367,4 +462,56 @@ func getLastID(posts []models.FeedPost) int64 {
 		return 0
 	}
 	return posts[len(posts)-1].ID
+}
+
+// removePostFromAllFeeds удаляет пост из лент всех друзей (fallback метод)
+func (ps *PostService) removePostFromAllFeeds(ctx context.Context, userID int64, postID int64) {
+	if RedisClient == nil {
+		return
+	}
+
+	// Получаем список друзей
+	var friends []models.Friend
+	err := db.GetReadOnlyDB(ctx).
+		Where("(user_id = ? OR friend_id = ?) AND status = ?", userID, userID, "approved").
+		Find(&friends).Error
+
+	if err != nil {
+		return
+	}
+
+	// Удаляем пост из лент всех друзей
+	for _, friend := range friends {
+		var friendID int64
+		if friend.UserID == userID {
+			friendID = friend.FriendID
+		} else {
+			friendID = friend.UserID
+		}
+
+		ps.removePostFromUserFeed(ctx, friendID, postID)
+	}
+
+	// Удаляем из своей ленты тоже
+	ps.removePostFromUserFeed(ctx, userID, postID)
+}
+
+// removePostFromUserFeed удаляет пост из ленты конкретного пользователя
+func (ps *PostService) removePostFromUserFeed(ctx context.Context, userID int64, postID int64) {
+	if RedisClient == nil {
+		return
+	}
+
+	feedKey := fmt.Sprintf("%s%d", FEED_KEY_PREFIX, userID)
+	postKey := fmt.Sprintf("%s%d", POST_KEY_PREFIX, postID)
+
+	pipe := RedisClient.Pipeline()
+
+	// Удаляем из sorted set
+	pipe.ZRem(ctx, feedKey, fmt.Sprintf("%d", postID))
+
+	// Удаляем кешированные данные поста
+	pipe.Del(ctx, postKey)
+
+	pipe.Exec(ctx)
 }

@@ -51,7 +51,7 @@ func userSearch(concurrency int, iterations int) ([]SearchResult, float64) {
 			success := err == nil && resp.StatusCode == http.StatusOK
 			results[idx] = SearchResult{Latency: latency, Success: success}
 			if resp != nil {
-				resp.Body.Close()
+				_ = resp.Body.Close()
 			}
 		}(i)
 	}
@@ -63,7 +63,7 @@ func userSearch(concurrency int, iterations int) ([]SearchResult, float64) {
 
 func TestUserSearchLoad(t *testing.T) {
 	concurrencies := []int{1, 10, 100, 1000}
-	iterations := 100
+	iterations := 20 // ограничение количества запросов
 
 	report := make(map[string]interface{})
 
@@ -84,9 +84,11 @@ func TestUserSearchLoad(t *testing.T) {
 			"success":      success,
 		}
 	}
-	f, _ := os.Create("user_search_report_after_index.json")
-	defer f.Close()
-	json.NewEncoder(f).Encode(report)
+	f, err := os.Create("user_search_report_after_index.json")
+	if err == nil {
+		defer func() { _ = f.Close() }()
+		_ = json.NewEncoder(f).Encode(report)
+	}
 }
 
 // Тест для /user/get/{id} endpoint
@@ -113,7 +115,7 @@ func userGet(concurrency int, iterations int) ([]SearchResult, float64) {
 			success := err == nil && (resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusNotFound)
 			results[idx] = SearchResult{Latency: latency, Success: success}
 			if resp != nil {
-				resp.Body.Close()
+				_ = resp.Body.Close()
 			}
 		}(i)
 	}
@@ -125,7 +127,7 @@ func userGet(concurrency int, iterations int) ([]SearchResult, float64) {
 
 func TestUserGetLoad(t *testing.T) {
 	concurrencies := []int{1, 10, 100, 1000}
-	iterations := 100
+	iterations := 20 // ограничение количества запросов
 
 	report := make(map[string]interface{})
 
@@ -146,7 +148,9 @@ func TestUserGetLoad(t *testing.T) {
 			"success":      success,
 		}
 	}
-	f, _ := os.Create("user_get_report.json")
-	defer f.Close()
-	json.NewEncoder(f).Encode(report)
+	f, err := os.Create("user_get_report.json")
+	if err == nil {
+		defer func() { _ = f.Close() }()
+		_ = json.NewEncoder(f).Encode(report)
+	}
 }

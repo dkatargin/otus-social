@@ -21,6 +21,8 @@ func PublicApi(router *gin.Engine) *gin.RouterGroup {
 		authenticated := publicEndpoints.Group("/")
 		authenticated.Use(middleware.TestAuthMiddleware())
 		{
+			// WebSocket для ленты
+			authenticated.GET("ws/feed", handlers.WSFeedHandler)
 			// Друзья
 			authenticated.POST("friends/add", handlers.AddFriend)
 			authenticated.POST("friends/approve", handlers.ApproveFriend)
@@ -32,6 +34,10 @@ func PublicApi(router *gin.Engine) *gin.RouterGroup {
 			authenticated.POST("posts/create", handlers.CreatePost)
 			authenticated.DELETE("posts/:post_id", handlers.DeletePost)
 			authenticated.GET("feed", handlers.GetFeed)
+
+			// Диалоги
+			authenticated.POST("dialog/:user_id/send", handlers.SendMessageHandler)
+			authenticated.GET("dialog/:user_id/list", handlers.ListDialogHandler)
 		}
 
 		// Админские эндпоинты (без аутентификации для простоты)
