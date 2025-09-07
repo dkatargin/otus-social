@@ -13,8 +13,10 @@ import (
 )
 
 const (
-	FEED_UPDATE_QUEUE  = "feed_update_queue"
-	QUEUE_WORKER_COUNT = 5
+	FEED_UPDATE_QUEUE    = "feed_update_queue"
+	QUEUE_WORKER_COUNT   = 5
+	CELEBRITY_THRESHOLD  = 1000 // Порог друзей для celebrity пользователей
+	CELEBRITY_BATCH_SIZE = 100  // Размер батча для celebrity
 )
 
 // FeedUpdateTask представляет задачи для обновления лент
@@ -96,9 +98,11 @@ func (qs *QueueService) processTask(ctx context.Context, task *FeedUpdateTask, w
 
 // processCreatePost обрабатывает создание поста
 func (qs *QueueService) processCreatePost(ctx context.Context, task *FeedUpdateTask) {
-	// Эта логика уже реализована в PostService.updateFriendsFeeds
-	// Но теперь мы вызываем её через очередь
+	// Обновляем кеш лент друзей
 	qs.postService.updateFriendsFeeds(ctx, task.UserID, &task.Post)
+
+	// Отправляем WebSocket уведомления через RabbitMQ
+	qs.sendFeedNotifications(ctx, task.UserID, &task.Post)
 }
 
 // processDeletePost обрабатывает удаление поста
@@ -171,4 +175,76 @@ func (qs *QueueService) EnqueueFeedUpdate(ctx context.Context, userID int64, pos
 // GetQueueStats возвращает статистику очереди
 func (qs *QueueService) GetQueueStats(ctx context.Context) (int64, error) {
 	return RedisClient.LLen(ctx, FEED_UPDATE_QUEUE).Result()
+}
+
+// sendFeedNotifications отправляет WebSocket уведомления друзьям через RabbitMQ
+func (qs *QueueService) sendFeedNotifications(ctx context.Context, userID int64, post *models.Post) {
+	// Получаем список друзей
+	var friends []models.Friend
+	err := db.GetReadOnlyDB(ctx).
+		Where("(user_id = ? OR friend_id = ?) AND status = ?", userID, userID, "approved").
+		Find(&friends).Error
+
+	if err != nil {
+		log.Printf("Error getting friends for user %d: %v", userID, err)
+		return
+	}
+
+	// Проверяем, является ли пользователь celebrity
+	if len(friends) >= CELEBRITY_THRESHOLD {
+		log.Printf("User %d is celebrity (%d friends), using batch processing", userID, len(friends))
+		qs.sendBatchNotifications(ctx, userID, post, friends)
+		return
+	}
+
+	// Обычная обработка для пользователей с небольшим количеством друзей
+	qs.sendDirectNotifications(ctx, userID, post, friends)
+}
+
+// sendDirectNotifications отправляет уведомления напрямую для обычных пользователей
+func (qs *QueueService) sendDirectNotifications(ctx context.Context, userID int64, post *models.Post, friends []models.Friend) {
+	for _, friend := range friends {
+		var friendID int64
+		if friend.UserID == userID {
+			friendID = friend.FriendID
+		} else {
+			friendID = friend.UserID
+		}
+
+		// Создаем событие для WebSocket
+		event := FeedEvent{
+			UserID:    friendID, // Кому отправляем
+			PostID:    post.ID,
+			AuthorID:  userID, // Кто создал пост
+			Content:   post.Content,
+			CreatedAt: post.CreatedAt,
+		}
+
+		// Отправляем через RabbitMQ
+		if err := PublishFeedEvent(ctx, event); err != nil {
+			log.Printf("Failed to publish feed event for user %d: %v", friendID, err)
+		}
+	}
+}
+
+// sendBatchNotifications отправляет уведомления батчами для celebrity пользователей
+func (qs *QueueService) sendBatchNotifications(ctx context.Context, userID int64, post *models.Post, friends []models.Friend) {
+	for i := 0; i < len(friends); i += CELEBRITY_BATCH_SIZE {
+		end := i + CELEBRITY_BATCH_SIZE
+		if end > len(friends) {
+			end = len(friends)
+		}
+
+		batch := friends[i:end]
+
+		// Создаем отдельную горутину для каждого батча
+		go func(batch []models.Friend) {
+			qs.sendDirectNotifications(ctx, userID, post, batch)
+		}(batch)
+
+		// Небольшая задержка между батчами чтобы не перегружать систему
+		if i+CELEBRITY_BATCH_SIZE < len(friends) {
+			time.Sleep(10 * time.Millisecond)
+		}
+	}
 }

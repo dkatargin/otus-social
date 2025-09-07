@@ -5,19 +5,19 @@ import (
 	"time"
 )
 
-type sex string
+type Sex string
 
 const (
-	MALE   sex = "male"
-	FEMALE sex = "female"
+	MALE   Sex = "male"
+	FEMALE Sex = "female"
 )
 
-func (ct *sex) Scan(value interface{}) error {
-	*ct = sex(value.([]byte))
+func (ct *Sex) Scan(value interface{}) error {
+	*ct = Sex(value.([]byte))
 	return nil
 }
 
-func (ct sex) Value() (driver.Value, error) {
+func (ct Sex) Value() (driver.Value, error) {
 	return string(ct), nil
 }
 
@@ -28,7 +28,7 @@ type User struct {
 	LastName  string    `gorm:"size:255" json:"last_name"`
 	Password  string    `gorm:"size:255" json:"-"`
 	Birthday  time.Time `json:"birthday"`
-	Sex       string    `gorm:"type:sex"`
+	Sex       Sex       `gorm:"type:sex" json:"sex"`
 	City      string    `gorm:"size:255" json:"city"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`

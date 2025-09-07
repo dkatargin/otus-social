@@ -58,7 +58,7 @@ func Register(c *gin.Context) {
 		FirstName: registerRequest.Firstname,
 		LastName:  registerRequest.Lastname,
 		Password:  registerRequest.Password,
-		Sex:       registerRequest.Sex,
+		Sex:       models.Sex(registerRequest.Sex),
 		City:      registerRequest.City,
 	}
 

@@ -42,7 +42,7 @@ func setupTestDB() error {
 		}
 	}
 
-	// Устанавливаем глобальную пере��енную ORM
+	// Устанавливаем глобальную переменную ORM
 	db.ORM = database
 	return nil
 }
