@@ -413,7 +413,7 @@ func (ps *PostService) RebuildUserFeedFromDB(ctx context.Context, userID int64) 
 
 // RebuildAllFeeds перестраивает кеши всех лент из БД
 func (ps *PostService) RebuildAllFeeds(ctx context.Context) error {
-	// П��лучаем всех пользователей
+	// Получаем всех пользователей
 	var userIDs []int64
 	err := db.GetReadOnlyDB(ctx).Model(&models.User{}).Pluck("id", &userIDs).Error
 	if err != nil {
