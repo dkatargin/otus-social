@@ -1,0 +1,22 @@
+backend:
+  listen_port: 8080
+  bind_host: 0.0.0.0
+
+redis:
+  host: "redis-test"
+  port: 6379
+  password: ""
+  db: 0
+
+db:
+  master:
+    host: postgres-master
+    port: 5432
+    user: test_user
+    password: test_password
+    dbname: social_test
+
+shard_count: 4
+logs:
+  level: debug
+  sentry_sdk: xxxxx

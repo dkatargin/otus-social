@@ -78,10 +78,10 @@ func TestShardingConsistency(t *testing.T) {
 	}
 
 	// Создаем несколько пар пользователей
-	user1Token, user1ID := createTestUser(t, "shard_user1", "Shard")
-	user2Token, user2ID := createTestUser(t, "shard_user2", "Shard")
-	user3Token, user3ID := createTestUser(t, "shard_user3", "Shard")
-	_, user4ID := createTestUser(t, "shard_user4", "Shard")
+	user1ID, user1Token := CreateTestUser(t, "shard_user1", "Shard")
+	user2ID, user2Token := CreateTestUser(t, "shard_user2", "Shard")
+	user3ID, user3Token := CreateTestUser(t, "shard_user3", "Shard")
+	user4ID, _ := CreateTestUser(t, "shard_user4", "Shard")
 
 	t.Run("ConsistentShardMapping", func(t *testing.T) {
 		// Отправляем сообщения между одной парой пользователей много раз
@@ -173,8 +173,8 @@ func TestShardRebalancing(t *testing.T) {
 		panic(err)
 	}
 
-	user1Token, user1ID := createTestUser(t, "rebalance_user1", "Rebalance")
-	_, user2ID := createTestUser(t, "rebalance_user2", "Rebalance")
+	user1ID, user1Token := CreateTestUser(t, "rebalance_user1", "Rebalance")
+	user2ID, _ := CreateTestUser(t, "rebalance_user2", "Rebalance")
 
 	t.Run("ExplicitShardAssignment", func(t *testing.T) {
 		// Явно назначаем пользователя на определенный шард
@@ -233,7 +233,7 @@ func TestLadyGagaEffect(t *testing.T) {
 	}
 
 	// Создаем "популярного" пользователя и много обычных пользователей
-	popularToken, popularID := createTestUser(t, "lady_gaga", "Popular")
+	popularID, popularToken := CreateTestUser(t, "lady_gaga", "Popular")
 
 	var normalUsers []struct {
 		token string
@@ -242,7 +242,7 @@ func TestLadyGagaEffect(t *testing.T) {
 
 	// Создаем 5 обычных пользователей
 	for i := 0; i < 5; i++ {
-		token, id := createTestUser(t, fmt.Sprintf("normal_user_%d", i), "Normal")
+		id, token := CreateTestUser(t, fmt.Sprintf("normal_user_%d", i), "Normal")
 		normalUsers = append(normalUsers, struct {
 			token string
 			id    int64
@@ -346,7 +346,7 @@ func TestShardPerformance(t *testing.T) {
 
 	for i := 0; i < 20; i++ {
 		timestamp := time.Now().UnixNano()
-		token, id := createTestUser(t, fmt.Sprintf("perf_user_%d_%d", i, timestamp), "Performance")
+		id, token := CreateTestUser(t, fmt.Sprintf("perf_user_%d_%d", i, timestamp), "Performance")
 		users[i] = struct {
 			token string
 			id    int64

@@ -6,10 +6,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"social/db"
 	"social/models"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // getShardID возвращает номер шарда для пользователя (копия из handlers)
@@ -60,7 +61,7 @@ func TestShardDistribution(t *testing.T) {
 
 	for i := 0; i < numUsers; i++ {
 		timestamp := time.Now().UnixNano()
-		token, id := createTestUser(t, fmt.Sprintf("dist_user_%d_%d", i, timestamp), "Distribution")
+		id, token := CreateTestUser(t, fmt.Sprintf("dist_user_%d_%d", i, timestamp), "Distribution")
 		users[i] = struct {
 			token string
 			id    int64
@@ -190,8 +191,8 @@ func TestShardConsistency(t *testing.T) {
 	}
 
 	// Создаем пользователей
-	user1Token, user1ID := createTestUser(t, "consistency_user1_"+strconv.FormatInt(time.Now().UnixNano(), 10), "Consistency")
-	user2Token, user2ID := createTestUser(t, "consistency_user2_"+strconv.FormatInt(time.Now().UnixNano(), 10), "Consistency")
+	user1ID, user1Token := CreateTestUser(t, "consistency_user1_"+strconv.FormatInt(time.Now().UnixNano(), 10), "Consistency")
+	user2ID, user2Token := CreateTestUser(t, "consistency_user2_"+strconv.FormatInt(time.Now().UnixNano(), 10), "Consistency")
 
 	// Отправляем несколько сообщений между одной парой пользователей
 	for i := 0; i < 10; i++ {
@@ -259,7 +260,7 @@ func TestShardPerformanceWithWorkingAuth(t *testing.T) {
 
 	for i := 0; i < numUsers; i++ {
 		timestamp := time.Now().UnixNano()
-		token, id := createTestUser(t, fmt.Sprintf("perf_user_%d_%d", i, timestamp), "Performance")
+		id, token := CreateTestUser(t, fmt.Sprintf("perf_user_%d_%d", i, timestamp), "Performance")
 		users[i] = struct {
 			token string
 			id    int64

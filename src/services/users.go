@@ -5,11 +5,12 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
-	"golang.org/x/crypto/argon2"
 	"social/db"
 	"social/models"
 	"strings"
 	"time"
+
+	"golang.org/x/crypto/argon2"
 )
 
 type UserExtra struct {
@@ -59,6 +60,15 @@ func (h *UserHandler) Register() (userId *int64, err error) {
 	if trx.Error != nil {
 		return nil, trx.Error
 	}
+
+	// Запись в ShardMap
+	shardID := int(h.DbModel.ID % int64(db.GetShardCount()))
+	shardMap := models.ShardMap{
+		UserID:  h.DbModel.ID,
+		ShardID: shardID,
+	}
+	trx = db.GetWriteDB(ctx).Model(&models.ShardMap{}).Create(&shardMap)
+
 	return &h.DbModel.ID, err
 }
 

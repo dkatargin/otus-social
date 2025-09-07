@@ -35,6 +35,7 @@ type Config struct {
 		Level     string `yaml:"level"`
 		SentrySDK string `yaml:"sentry_sdk"`
 	} `yaml:"logs"`
+	ShardCount int `yaml:"shard_count"`
 }
 
 var AppConfig *Config

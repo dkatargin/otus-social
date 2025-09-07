@@ -12,3 +12,7 @@ type Friend struct {
 	CreatedAt  time.Time `gorm:"autoCreateTime" json:"created_at"`
 	ApprovedAt time.Time `json:"approved_at,omitempty"`
 }
+
+func (Friend) TableName() string {
+	return "friends"
+}

@@ -67,8 +67,40 @@ func ConnectDB() (err error) {
 			return
 		}
 	}
+	// Создаем enum для пола, если он не существует
+	err = CreateSexEnum(db)
+	if err != nil {
+		return fmt.Errorf("failed to create sex enum: %w", err)
+	}
+	// Автоматическая миграция схемы базы данных
+	err = db.AutoMigrate(
+		&models.Friend{},
+		&models.Interest{},
+		&models.Message{},
+		&models.Migration{},
+		&models.Post{},
+		&models.ShardMap{},
+		&models.UserInterest{},
+		&models.UserTokens{},
+		&models.User{},
+		&models.WriteTransaction{},
+	)
 
-	err = db.AutoMigrate(&models.User{}, &models.Migration{}, &models.UserTokens{}, &models.WriteTransaction{}, &models.Interest{}, &models.UserInterest{}, &models.Friend{}, &models.Post{}, &models.Message{}, &models.ShardMap{})
+	if err != nil {
+		panic("failed to migrate database schema: " + err.Error())
+	}
+
+	shardsNum := GetShardCount()
+	if shardsNum < 1 {
+		shardsNum = 1
+	}
+	// Создаем шардированные таблицы для сообщений
+	// messages_0, messages_1, ..., messages_(shardsNum-1)
+	// Если таблицы уже существуют, они не будут созданы заново
+	err = CreateShardedMessageTables(db, shardsNum)
+	if err != nil {
+		return fmt.Errorf("failed to create sharded message tables: %w", err)
+	}
 
 	ORM = db
 	return nil
@@ -97,4 +129,12 @@ func GetWriteDB(ctx context.Context) *gorm.DB {
 		return ORM.WithContext(ctx)
 	}
 	return ORM.WithContext(ctx).Clauses(dbresolver.Write)
+}
+
+// GetShardCount возвращает количество шардов
+func GetShardCount() int {
+	if config.AppConfig == nil {
+		return 1
+	}
+	return config.AppConfig.ShardCount
 }

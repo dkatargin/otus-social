@@ -25,9 +25,9 @@ func setupFeedRouter() *gin.Engine {
 	}
 
 	// Инициализируем Redis (заглушка для тестов)
-	if err := SetupTestRedis(); err != nil {
-		panic(err)
-	}
+	//if err := SetupTestRedis(); err != nil {
+	//	panic(err)
+	//}
 
 	gin.SetMode(gin.TestMode)
 	r := gin.New()

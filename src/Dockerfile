@@ -5,8 +5,7 @@ COPY . /build/
 
 RUN go build -o server .
 
-FROM alpine:latest
-RUN apk --no-cache add ca-certificates
+FROM scratch as runner
 WORKDIR /app
 
 COPY --from=builder /build/server /app/server

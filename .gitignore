@@ -22,3 +22,7 @@ go.work.sum
 app.yaml
 vendor
 .venv
+db
+server
+user_*.json
+mixed_*.json

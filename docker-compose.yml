@@ -117,12 +117,28 @@ services:
     networks:
       - otus
 
+  rabbitmq:
+    image: rabbitmq:3-management
+    restart: unless-stopped
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmqctl", "status"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - otus
+
   backend:
     build:
       context: ./src
       dockerfile: Dockerfile
     environment:
       - GIN_MODE=release
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
     volumes:
       - ./app.yaml:/app/config.yaml
     ports:
@@ -135,6 +151,8 @@ services:
       postgres-slave-2:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     networks:
       - otus

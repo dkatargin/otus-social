@@ -1,81 +1,100 @@
 package tests
 
 import (
+	"context"
 	"fmt"
 	"os"
-	"social/config"
+	"testing"
+	"time"
+
 	"social/db"
 	"social/models"
 	"social/services"
-	"testing"
+
+	"github.com/go-redis/redis/v8"
+	"github.com/stretchr/testify/require"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
 )
 
 const ApiBaseUrl = "http://localhost:8080"
 
-// SetupFeedTestDB инициализирует тестовую базу данных для тестов фида и диалогов
+var TestRedisClient *redis.Client
+
 func SetupFeedTestDB() error {
-	// Загружаем тестовую конфигурацию
-	configPath := "config/test.yaml"
-	// Проверяем, можем ли мы найти файл в текущей директории или на уровень выше
-	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		configPath = "../config/test.yaml"
-	}
-
-	err := config.LoadConfig(configPath)
+	// Инициализируем тестовую базу данных SQLite в памяти
+	database, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	if err != nil {
-		return fmt.Errorf("failed to load test config: %w", err)
+		return err
 	}
-
-	// Подключаемся к тестовой базе данных PostgreSQL
-	err = db.ConnectDB()
+	// Автомиграция всех моделей включая Post, Message, ShardMap
+	err = database.AutoMigrate(&models.User{}, &models.Friend{}, &models.Post{}, &models.ShardMap{}, &models.Message{})
 	if err != nil {
-		return fmt.Errorf("failed to connect to test database: %w", err)
+		return err
 	}
-
-	// Инициализируем Redis для тестов
-	err = services.InitRedis()
-	if err != nil {
-		fmt.Printf("Warning: Redis initialization failed: %v\n", err)
-		// Продолжаем тесты без Redis
-	}
-
-	// Примечание: Отключаем очистку таблиц для демонстрации работы с PostgreSQL
-	// В продакшене можно включить правильную очистку таблиц
-
+	// Устанавливаем глобальную переменную ORM
+	db.ORM = database
 	return nil
 }
 
-// SetupTestRedis заглушка для Redis (в тестах не используем реальный Redis)
-func SetupTestRedis() error {
-	// В тестах Redis не нужен или используем mock
-	return nil
+func SetupTestRedis() {
+	// Настраиваем тестовый Redis клиент
+	TestRedisClient = redis.NewClient(&redis.Options{
+		Addr: "localhost:6379",
+		DB:   1, // Используем тестовую БД
+	})
+	// Очищаем тестовую БД
+	TestRedisClient.FlushDB(context.Background())
+	// Устанавливаем глобальный клиент для тестов
+	services.RedisClient = TestRedisClient
+
+	// НЕ инициализируем QueueServiceInstance в тестах, чтобы использовать fallback путь
+	services.QueueServiceInstance = nil
+
+	// Инициализируем RabbitMQ для тестов
+	os.Setenv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
+	if err := services.InitRabbitMQ(); err != nil {
+		// Если RabbitMQ недоступен, продолжаем без него
+		fmt.Printf("Warning: RabbitMQ not available for tests: %v\n", err)
+	} else {
+		// Запускаем консьюмер в фоновом режиме
+		go func() {
+			ctx := context.Background()
+			if err := services.StartFeedEventConsumer(ctx, "test_feed_queue"); err != nil {
+				fmt.Printf("Warning: Failed to start feed consumer: %v\n", err)
+			}
+		}()
+		// Даем консьюмеру время на запуск
+		time.Sleep(100 * time.Millisecond)
+	}
 }
 
-// createTestUser создает тестового пользователя и возвращает токен и ID
-func createTestUser(t *testing.T, nickname, firstName string) (string, int64) {
-	// Инициализируем БД если она еще не инициализирована
-	if db.ORM == nil {
-		if err := SetupFeedTestDB(); err != nil {
-			t.Fatalf("Failed to setup test database: %v", err)
-		}
-	}
-
-	user := models.User{
-		Nickname:  nickname,
+func CreateTestUser(t *testing.T, firstName, lastName string) (userId int64, token string) {
+	user := &models.User{
 		FirstName: firstName,
-		LastName:  "TestUser",
-		Password:  "testpassword",
-		Sex:       models.MALE,
+		LastName:  lastName,
+		Nickname:  fmt.Sprintf("user_%d", time.Now().UnixNano()),
+		Birthday:  time.Now().AddDate(-25, 0, 0),
+		Sex:       []models.Sex{models.MALE, models.FEMALE}[time.Now().UnixNano()%2],
+		City:      "Test City",
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
 	}
+	err := db.ORM.Create(user).Error
+	require.NoError(t, err)
 
-	err := db.ORM.Create(&user).Error
-	if err != nil {
-		t.Fatalf("Failed to create test user: %v", err)
+	authToken := fmt.Sprintf("test_token_%d", user.ID)
+	return user.ID, authToken
+}
+
+func CreateFriendship(t *testing.T, userID, friendID int64) {
+	friendship := &models.Friend{
+		UserID:     userID,
+		FriendID:   friendID,
+		Status:     "approved",
+		CreatedAt:  time.Now(),
+		ApprovedAt: time.Now(),
 	}
-
-	// В реальном приложении здесь должен быть реальный токен
-	// Для тестов используем простую строку
-	token := fmt.Sprintf("test_token_%d", user.ID)
-
-	return token, user.ID
+	err := db.ORM.Create(friendship).Error
+	require.NoError(t, err)
 }
