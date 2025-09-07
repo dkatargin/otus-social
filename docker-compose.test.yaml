@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  postgres-test:
+  postgres-master:
     image: postgres:15
     environment:
       POSTGRES_DB: social_test
@@ -9,8 +9,8 @@ services:
       POSTGRES_PASSWORD: test_password
     ports:
       - "5440:5432"
-    volumes:
-      - ./db/init.sql:/docker-entrypoint-initdb.d/01-init.sql
+#    volumes:
+#      - ./etc/schema.sql:/docker-entrypoint-initdb.d/01-init.sql
     tmpfs:
       - /var/lib/postgresql/data
     command: postgres -c fsync=off -c synchronous_commit=off -c full_page_writes=off
@@ -51,10 +51,10 @@ services:
 
   app-test:
     build:
-      context: .
+      context: src
       dockerfile: Dockerfile
     environment:
-      - DB_HOST=postgres-test
+      - DB_HOST=postgres-master
       - DB_PORT=5432
       - DB_USER=test_user
       - DB_PASSWORD=test_password
@@ -64,13 +64,14 @@ services:
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq-test:5672/
       - APP_ENV=test
     depends_on:
-      postgres-test:
+      postgres-master:
         condition: service_healthy
       redis-test:
         condition: service_healthy
       rabbitmq-test:
         condition: service_healthy
     volumes:
-      - .:/app
-    working_dir: /app
+      - ./etc/app_test.yaml:/app/config.yaml:ro
+    ports:
+      - "8080:8080"
     command: tail -f /dev/null  # Keep container running for tests

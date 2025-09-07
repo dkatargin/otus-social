@@ -11,6 +11,10 @@ type Post struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+func (Post) TableName() string {
+	return "posts"
+}
+
 // FeedPost - структура для ленты с дополнительной информацией о пользователе
 type FeedPost struct {
 	ID         int64     `json:"id"`

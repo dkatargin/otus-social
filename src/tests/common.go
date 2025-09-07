@@ -69,20 +69,22 @@ func SetupTestRedis() {
 	}
 }
 
-func CreateTestUser(t *testing.T, firstName, lastName string) *models.User {
+func CreateTestUser(t *testing.T, firstName, lastName string) (userId int64, token string) {
 	user := &models.User{
 		FirstName: firstName,
 		LastName:  lastName,
 		Nickname:  fmt.Sprintf("user_%d", time.Now().UnixNano()),
 		Birthday:  time.Now().AddDate(-25, 0, 0),
-		Sex:       "male",
+		Sex:       []models.Sex{models.MALE, models.FEMALE}[time.Now().UnixNano()%2],
 		City:      "Test City",
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
 	err := db.ORM.Create(user).Error
 	require.NoError(t, err)
-	return user
+
+	authToken := fmt.Sprintf("test_token_%d", user.ID)
+	return user.ID, authToken
 }
 
 func CreateFriendship(t *testing.T, userID, friendID int64) {

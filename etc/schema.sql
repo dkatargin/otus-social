@@ -2,7 +2,7 @@
 CREATE TYPE sex AS ENUM ('male', 'female');
 
 -- Создание таблицы пользователей (структура должна точно соответствовать Go модели)
-CREATE TABLE "user" (
+CREATE TABLE "users" (
     id BIGSERIAL PRIMARY KEY,
     nickname VARCHAR(60) NOT NULL,
     first_name VARCHAR(255),
@@ -16,12 +16,12 @@ CREATE TABLE "user" (
 );
 
 -- Создание уникального индекса для nickname (GORM будет управлять этим)
-CREATE UNIQUE INDEX uni_users_nickname ON "user" (nickname);
+CREATE UNIQUE INDEX uni_users_nickname ON "users" (nickname);
 
 -- Создание индексов для поиска по имени и фамилии
-CREATE INDEX idx_users_first_name ON "user" (first_name);
-CREATE INDEX idx_users_last_name ON "user" (last_name);
-CREATE INDEX idx_users_name_search ON "user" (first_name, last_name);
+CREATE INDEX idx_users_first_name ON "users" (first_name);
+CREATE INDEX idx_users_last_name ON "users" (last_name);
+CREATE INDEX idx_users_name_search ON "users" (first_name, last_name);
 
 -- Создание таблицы интересов
 CREATE TABLE interest (
@@ -45,15 +45,15 @@ CREATE INDEX idx_user_interests_user_id ON user_interest (user_id);
 CREATE INDEX idx_user_interests_interest_id ON user_interest (interest_id);
 
 -- Создание таблицы токенов пользователей
-CREATE TABLE user_token (
+CREATE TABLE user_tokens (
     id BIGSERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL,
     token VARCHAR(255) NOT NULL
 );
 
 -- Создание индексов для токенов
-CREATE INDEX idx_user_tokens_user_id ON user_token (user_id);
-CREATE INDEX idx_user_tokens_token ON user_token (token);
+CREATE INDEX idx_user_tokens_user_id ON user_tokens (user_id);
+CREATE INDEX idx_user_tokens_token ON user_tokens (token);
 
 -- Создание таблицы для отслеживания транзакций записи
 CREATE TABLE write_transaction (

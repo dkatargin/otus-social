@@ -56,15 +56,15 @@ func TestWebSocketFeedPush(t *testing.T) {
 	defer ts.Close()
 
 	// Создаем пользователей и дружбу
-	user1 := CreateTestUser(t, "Alice", "Test")
-	user2 := CreateTestUser(t, "Bob", "Test")
-	CreateFriendship(t, user1.ID, user2.ID)
+	user1, _ := CreateTestUser(t, "Alice", "Test")
+	user2, _ := CreateTestUser(t, "Bob", "Test")
+	CreateFriendship(t, user1, user2)
 
 	// Открываем WebSocket соединение от имени user1
 	wsURL := "ws" + ts.URL[4:] + "/api/v1/ws/feed"
 	dialer := websocket.Dialer{}
 	headers := make(map[string][]string)
-	headers["X-User-ID"] = []string{strconv.FormatInt(user1.ID, 10)}
+	headers["X-User-ID"] = []string{strconv.FormatInt(user1, 10)}
 	conn, resp, err := dialer.Dial(wsURL, headers)
 	require.NoError(t, err, "WebSocket dial failed, resp: %+v", resp)
 	defer conn.Close()
@@ -82,7 +82,7 @@ func TestWebSocketFeedPush(t *testing.T) {
 	client := ts.Client()
 	req, _ := http.NewRequest("POST", ts.URL+"/api/v1/posts/create", bytes.NewBuffer(jsonData))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-User-ID", strconv.FormatInt(user2.ID, 10))
+	req.Header.Set("X-User-ID", strconv.FormatInt(user2, 10))
 	resp2, err := client.Do(req)
 	require.NoError(t, err)
 	assert.Equal(t, 201, resp2.StatusCode)
@@ -106,8 +106,8 @@ func TestWebSocketFeedPush(t *testing.T) {
 	select {
 	case evt := <-pushReceived:
 		assert.Equal(t, "feed_posted", evt.Event)
-		assert.Equal(t, user1.ID, evt.UserID)
-		assert.Equal(t, user2.ID, evt.AuthorID)
+		assert.Equal(t, user1, evt.UserID)
+		assert.Equal(t, user2, evt.AuthorID)
 		assert.Equal(t, "Hello from Bob!", evt.Content)
 		assert.NotZero(t, evt.PostID)
 		assert.False(t, evt.CreatedAt.IsZero())
