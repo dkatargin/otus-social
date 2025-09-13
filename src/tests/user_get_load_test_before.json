@@ -1,9 +1,0 @@
-{
-  "TotalRequests": 20,
-  "SuccessRequests": 20,
-  "FailedRequests": 0,
-  "TotalDuration": 8336583,
-  "RequestsPerSec": 2399.0644608228577,
-  "TestName": "user_get_load_test",
-  "Timestamp": "2025-09-06T15:55:31.392841+03:00"
-}

@@ -117,6 +117,23 @@ services:
     networks:
       - otus
 
+  redis-dialogs:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6380:6379"
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-dialogs-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - otus
+
   rabbitmq:
     image: rabbitmq:3-management
     restart: unless-stopped
@@ -165,3 +182,4 @@ volumes:
   db-data-slave-1:
   db-data-slave-2:
   redis-data:
+  redis-dialogs-data:
