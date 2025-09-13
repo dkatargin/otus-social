@@ -26,11 +26,15 @@ type Config struct {
 		Master   DBConfig   `yaml:"master"`
 		Replicas []DBConfig `yaml:"replicas"`
 	} `yaml:"db"`
-	Redis   RedisConfig `yaml:"redis"`
-	Backend struct {
+	Redis        RedisConfig `yaml:"redis"`
+	RedisDialogs RedisConfig `yaml:"redis_dialogs"`
+	Backend      struct {
 		Host string `yaml:"host"`
 		Port int    `yaml:"port"`
 	} `yaml:"backend"`
+	RabbitMQ struct {
+		URL string `yaml:"url"`
+	}
 	Logs struct {
 		Level     string `yaml:"level"`
 		SentrySDK string `yaml:"sentry_sdk"`

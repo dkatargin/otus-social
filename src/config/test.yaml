@@ -1,21 +1,33 @@
 db:
   master:
-    host: "localhost"
-    port: 5440
-    user: "test_user"
-    password: "test_password"
-    dbname: "social_test"
+    host: localhost
+    port: 5433
+    user: app_user
+    password: app_password
+    dbname: app_db
   replicas: []
 
 redis:
-  host: "localhost"
+  host: localhost
+  port: 6379
+  password: ""
+  db: 0
+
+redis_dialogs:
+  host: localhost
   port: 6380
   password: ""
   db: 0
 
-backend:
-  port: 8080
-  host: "0.0.0.0"
-
 rabbitmq:
-  url: "amqp://guest:guest@localhost:5673/"
+    url: amqp://guest:guest@localhost:5672/
+
+backend:
+  host: localhost
+  port: 8080
+
+logs:
+  level: debug
+  sentry_sdk: ""
+
+shard_count: 4

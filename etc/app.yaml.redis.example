@@ -1,27 +1,35 @@
-db:
+backend:
+  listen_port: 8080
+  bind_host: 0.0.0.0
+
+database:
   master:
-    host: "localhost"
+    host: postgres-master
     port: 5432
-    user: "postgres"
-    password: "password"
-    dbname: "social_network"
+    user: app_user
+    password: app_password
+    dbname: app_db
   replicas:
-    - host: "localhost"
-      port: 5433
-      user: "postgres"
-      password: "password"
-      dbname: "social_network"
+    - host: postgres-slave-1
+      port: 5432
+      user: app_user
+      password: app_password
+      dbname: app_db
 
 redis:
-  host: "localhost"
+  host: redis
   port: 6379
   password: ""
   db: 0
 
-backend:
-  host: "0.0.0.0"
-  port: 8080
+redis_dialogs:
+  host: redis-dialogs
+  port: 6379
+  password: ""
+  db: 0
 
 logs:
-  level: "info"
-  sentry_sdk: ""
+  level: debug
+  sentry_sdk: xxxxx
+
+shard_count: 4

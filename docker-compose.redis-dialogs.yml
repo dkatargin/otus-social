@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  redis-dialogs:
+    image: redis:7-alpine
+    container_name: redis-dialogs
+    ports:
+      - "6380:6379"
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_dialogs_data:/data
+    networks:
+      - social_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  redis_dialogs_data:
+
+networks:
+  social_network:
+    external: true
