@@ -31,9 +31,14 @@ func getShardID(userID1, userID2 int64) int {
 		maxID = userID1
 	}
 
-	// Проверяем, есть ли явное маппирование в shard_map
+	// Проверяем, есть ли явное маппирование в shard_map для меньшего ID
 	var shardMap models.ShardMap
 	if err := db.ORM.Where("user_id = ?", minID).First(&shardMap).Error; err == nil {
+		return shardMap.ShardID
+	}
+
+	// Также проверяем большего пользователя для случаев решардинга
+	if err := db.ORM.Where("user_id = ?", maxID).First(&shardMap).Error; err == nil {
 		return shardMap.ShardID
 	}
 

@@ -1,7 +1,6 @@
 package models
 
 import (
-	"database/sql/driver"
 	"time"
 )
 
@@ -11,15 +10,6 @@ const (
 	MALE   Sex = "male"
 	FEMALE Sex = "female"
 )
-
-func (ct *Sex) Scan(value interface{}) error {
-	*ct = Sex(value.([]byte))
-	return nil
-}
-
-func (ct Sex) Value() (driver.Value, error) {
-	return string(ct), nil
-}
 
 type User struct {
 	ID        int64     `gorm:"primaryKey;autoIncrement" json:"id"`
@@ -32,6 +22,10 @@ type User struct {
 	City      string    `gorm:"size:255" json:"city"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
+}
+
+func (User) TableName() string {
+	return "users"
 }
 
 type Interest struct {
@@ -47,8 +41,12 @@ type UserInterest struct {
 
 type UserTokens struct {
 	ID     int64  `gorm:"primaryKey;autoIncrement" json:"id"`
-	UserID int64  `gorm:"index" json:"user_id"`
-	Token  string `gorm:"size:255" json:"token"`
+	UserID int64  `gorm:"index:user_token_idx,unique" json:"user_id"`
+	Token  string `gorm:"size:255;index:user_token_idx,unique" json:"token"`
+}
+
+func (UserTokens) TableName() string {
+	return "user_tokens"
 }
 
 // WriteTransaction для отслеживания записей во время нагрузочного тестирования

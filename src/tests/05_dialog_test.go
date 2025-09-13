@@ -10,13 +10,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gin-gonic/gin"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"social/api/handlers"
 	"social/api/middleware"
 	"social/db"
 	"social/models"
+
+	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSendAndListDialog(t *testing.T) {
@@ -151,8 +152,9 @@ func TestDialogBasicFunctionality(t *testing.T) {
 	r.GET("/api/v1/dialog/:user_id/list", handlers.ListDialogHandler)
 
 	// Создаем двух тестовых пользователей
-	user1Token, user1ID := createTestUser(t, "dialog_user1_"+strconv.FormatInt(time.Now().UnixNano(), 10), "Dialog")
-	user2Token, user2ID := createTestUser(t, "dialog_user2_"+strconv.FormatInt(time.Now().UnixNano(), 10), "Dialog")
+
+	user1ID, user1Token := CreateTestUser(t, "dialog_user1_"+strconv.FormatInt(time.Now().UnixNano(), 10), "Dialog")
+	user2ID, user2Token := CreateTestUser(t, "dialog_user2_"+strconv.FormatInt(time.Now().UnixNano(), 10), "Dialog")
 
 	t.Run("SendMessage", func(t *testing.T) {
 		// Отправляем сообщение от user1 к user2 через httptest
@@ -280,8 +282,8 @@ func TestDialogPagination(t *testing.T) {
 	}
 
 	// Создаем тестовых пользователей
-	user1Token, user1ID := createTestUser(t, "paginate_user1_"+strconv.FormatInt(time.Now().UnixNano(), 10), "Paginate")
-	user2Token, user2ID := createTestUser(t, "paginate_user2_"+strconv.FormatInt(time.Now().UnixNano(), 10), "Paginate")
+	user1ID, user1Token := CreateTestUser(t, "paginate_user1_"+strconv.FormatInt(time.Now().UnixNano(), 10), "Paginate")
+	user2ID, user2Token := CreateTestUser(t, "paginate_user2_"+strconv.FormatInt(time.Now().UnixNano(), 10), "Paginate")
 
 	// Создаем записи в shard_maps для пользователей
 	shardMap1 := &models.ShardMap{UserID: user1ID, ShardID: 1}
@@ -351,7 +353,7 @@ func TestDialogPagination(t *testing.T) {
 
 // TestDialogValidation тестирует валидацию входных данных
 func TestDialogValidation(t *testing.T) {
-	userToken, _ := createTestUser(t, "val_user_"+strconv.FormatInt(time.Now().UnixNano(), 10), "Validation")
+	_, userToken := CreateTestUser(t, "val_user_"+strconv.FormatInt(time.Now().UnixNano(), 10), "Validation")
 
 	t.Run("InvalidRecipientID", func(t *testing.T) {
 		// Отправляем сообщение несуществующему пользователю
@@ -365,7 +367,7 @@ func TestDialogValidation(t *testing.T) {
 	})
 
 	t.Run("EmptyMessage", func(t *testing.T) {
-		_, user2ID := createTestUser(t, "val_user2_"+strconv.FormatInt(time.Now().UnixNano(), 10), "Validation")
+		user2ID, _ := CreateTestUser(t, "val_user2_"+strconv.FormatInt(time.Now().UnixNano(), 10), "Validation")
 
 		resp, err := sendMessage(userToken, user2ID, "")
 		require.NoError(t, err)
@@ -377,8 +379,8 @@ func TestDialogValidation(t *testing.T) {
 
 	t.Run("MismatchedUserIDs", func(t *testing.T) {
 		// Создаем запрос с несоответствующими ID в URL и теле
-		_, user2ID := createTestUser(t, "val_user3_"+strconv.FormatInt(time.Now().UnixNano(), 10), "Validation")
-		_, user3ID := createTestUser(t, "val_user4_"+strconv.FormatInt(time.Now().UnixNano(), 10), "Validation")
+		user2ID, _ := CreateTestUser(t, "val_user3_"+strconv.FormatInt(time.Now().UnixNano(), 10), "Validation")
+		user3ID, _ := CreateTestUser(t, "val_user4_"+strconv.FormatInt(time.Now().UnixNano(), 10), "Validation")
 
 		url := fmt.Sprintf("%s/api/v1/dialog/%d/send", ApiBaseUrl, user2ID)
 

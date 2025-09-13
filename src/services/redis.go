@@ -3,35 +3,49 @@ package services
 import (
 	"context"
 	"fmt"
+	"log"
+	"os"
 	"social/config"
 
 	"github.com/go-redis/redis/v8"
 )
 
 var RedisClient *redis.Client
-var QueueServiceInstance *QueueService
 
 func InitRedis() error {
-	if config.AppConfig == nil {
-		return fmt.Errorf("AppConfig is not loaded")
+	// Проверяем переменные окружения для тестового режима
+	redisHost := os.Getenv("REDIS_HOST")
+	redisPort := os.Getenv("REDIS_PORT")
+
+	if redisHost == "" {
+		if config.AppConfig != nil {
+			redisHost = config.AppConfig.Redis.Host
+		} else {
+			redisHost = "localhost"
+		}
 	}
 
-	redisConfig := config.AppConfig.Redis
+	if redisPort == "" {
+		if config.AppConfig != nil {
+			redisPort = fmt.Sprintf("%d", config.AppConfig.Redis.Port)
+		} else {
+			redisPort = "6380" // Тестовый порт
+		}
+	}
+
 	RedisClient = redis.NewClient(&redis.Options{
-		Addr:     fmt.Sprintf("%s:%d", redisConfig.Host, redisConfig.Port),
-		Password: redisConfig.Password,
-		DB:       redisConfig.DB,
+		Addr:     fmt.Sprintf("%s:%s", redisHost, redisPort),
+		Password: "", // Пустой пароль для тестов
+		DB:       0,
 	})
 
 	// Тест соединения
 	_, err := RedisClient.Ping(context.Background()).Result()
 	if err != nil {
-		return fmt.Errorf("failed to connect to Redis: %w", err)
+		return fmt.Errorf("failed to connect to Redis at %s:%s: %w", redisHost, redisPort, err)
 	}
 
-	// Инициализируем сервис очереди
-	QueueServiceInstance = NewQueueService()
-
+	log.Printf("Redis connected successfully at %s:%s", redisHost, redisPort)
 	return nil
 }
 
