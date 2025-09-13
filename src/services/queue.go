@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"social/db"
 	"social/models"
 	"time"
 
@@ -98,66 +97,22 @@ func (qs *QueueService) processTask(ctx context.Context, task *FeedUpdateTask, w
 
 // processCreatePost обрабатывает создание поста
 func (qs *QueueService) processCreatePost(ctx context.Context, task *FeedUpdateTask) {
-	// Обновляем кеш лент друзей
+	// Используем метод updateFriendsFeeds из PostService
 	qs.postService.updateFriendsFeeds(ctx, task.UserID, &task.Post)
-
-	// Отправляем WebSocket уведомления через RabbitMQ
-	qs.sendFeedNotifications(ctx, task.UserID, &task.Post)
 }
 
 // processDeletePost обрабатывает удаление поста
 func (qs *QueueService) processDeletePost(ctx context.Context, task *FeedUpdateTask) {
-	// Удаляем пост из лент всех друзей
-	qs.removePostFromFriends(ctx, task.UserID, task.Post.ID)
-}
-
-// removePostFromFriends удаляет пост из лент друзей
-func (qs *QueueService) removePostFromFriends(ctx context.Context, userID int64, postID int64) {
-	// Получаем список друзей
-	var friends []models.Friend
-	err := db.GetReadOnlyDB(ctx).
-		Where("(user_id = ? OR friend_id = ?) AND status = ?", userID, userID, "approved").
-		Find(&friends).Error
-
-	if err != nil {
-		log.Printf("Error getting friends for user %d: %v", userID, err)
-		return
-	}
-
-	// Удаляем пост из лент всех друзей
-	for _, friend := range friends {
-		var friendID int64
-		if friend.UserID == userID {
-			friendID = friend.FriendID
-		} else {
-			friendID = friend.UserID
-		}
-
-		qs.removePostFromUserFeed(ctx, friendID, postID)
-	}
-
-	// Удаляем из своей ленты тоже
-	qs.removePostFromUserFeed(ctx, userID, postID)
-}
-
-// removePostFromUserFeed удаляет пост из ленты конкретного пользователя
-func (qs *QueueService) removePostFromUserFeed(ctx context.Context, userID int64, postID int64) {
-	feedKey := fmt.Sprintf("%s%d", FEED_KEY_PREFIX, userID)
-	postKey := fmt.Sprintf("%s%d", POST_KEY_PREFIX, postID)
-
-	pipe := RedisClient.Pipeline()
-
-	// Удаляем из sorted set
-	pipe.ZRem(ctx, feedKey, fmt.Sprintf("%d", postID))
-
-	// Удаляем кешированные данные поста
-	pipe.Del(ctx, postKey)
-
-	pipe.Exec(ctx)
+	// Удаляем пост из кешей лент
+	qs.postService.removePostFromFeeds(ctx, task.UserID, task.Post.ID)
 }
 
 // EnqueueFeedUpdate добавляет задачу обновления ленты в очередь
 func (qs *QueueService) EnqueueFeedUpdate(ctx context.Context, userID int64, post models.Post, action string) error {
+	if RedisClient == nil {
+		return fmt.Errorf("redis not available")
+	}
+
 	task := FeedUpdateTask{
 		UserID: userID,
 		Post:   post,
@@ -169,82 +124,36 @@ func (qs *QueueService) EnqueueFeedUpdate(ctx context.Context, userID int64, pos
 		return fmt.Errorf("failed to marshal task: %w", err)
 	}
 
-	return RedisClient.RPush(ctx, FEED_UPDATE_QUEUE, taskData).Err()
-}
-
-// GetQueueStats возвращает статистику очереди
-func (qs *QueueService) GetQueueStats(ctx context.Context) (int64, error) {
-	return RedisClient.LLen(ctx, FEED_UPDATE_QUEUE).Result()
-}
-
-// sendFeedNotifications отправляет WebSocket уведомления друзьям через RabbitMQ
-func (qs *QueueService) sendFeedNotifications(ctx context.Context, userID int64, post *models.Post) {
-	// Получаем список друзей
-	var friends []models.Friend
-	err := db.GetReadOnlyDB(ctx).
-		Where("(user_id = ? OR friend_id = ?) AND status = ?", userID, userID, "approved").
-		Find(&friends).Error
-
+	err = RedisClient.RPush(ctx, FEED_UPDATE_QUEUE, taskData).Err()
 	if err != nil {
-		log.Printf("Error getting friends for user %d: %v", userID, err)
-		return
+		return fmt.Errorf("failed to enqueue task: %w", err)
 	}
 
-	// Проверяем, является ли пользователь celebrity
-	if len(friends) >= CELEBRITY_THRESHOLD {
-		log.Printf("User %d is celebrity (%d friends), using batch processing", userID, len(friends))
-		qs.sendBatchNotifications(ctx, userID, post, friends)
-		return
-	}
-
-	// Обычная обработка для пользователей с небольшим количеством друзей
-	qs.sendDirectNotifications(ctx, userID, post, friends)
+	log.Printf("Enqueued feed update task for user %d, action: %s", userID, action)
+	return nil
 }
 
-// sendDirectNotifications отправляет уведомления напрямую для обычных пользователей
-func (qs *QueueService) sendDirectNotifications(ctx context.Context, userID int64, post *models.Post, friends []models.Friend) {
-	for _, friend := range friends {
-		var friendID int64
-		if friend.UserID == userID {
-			friendID = friend.FriendID
-		} else {
-			friendID = friend.UserID
-		}
+// GetStats возвращает статистику очереди
+func (qs *QueueService) GetStats() map[string]interface{} {
+	stats := make(map[string]interface{})
 
-		// Создаем событие для WebSocket
-		event := FeedEvent{
-			UserID:    friendID, // Кому отправляем
-			PostID:    post.ID,
-			AuthorID:  userID, // Кто создал пост
-			Content:   post.Content,
-			CreatedAt: post.CreatedAt,
-		}
-
-		// Отправляем через RabbitMQ
-		if err := PublishFeedEvent(ctx, event); err != nil {
-			log.Printf("Failed to publish feed event for user %d: %v", friendID, err)
-		}
+	if RedisClient != nil {
+		ctx := context.Background()
+		queueLength := RedisClient.LLen(ctx, FEED_UPDATE_QUEUE).Val()
+		stats["queue_length"] = queueLength
+		stats["worker_count"] = QUEUE_WORKER_COUNT
+		stats["queue_name"] = FEED_UPDATE_QUEUE
+	} else {
+		stats["error"] = "Redis not available"
 	}
+
+	return stats
 }
 
-// sendBatchNotifications отправляет уведомления батчами для celebrity пользователей
-func (qs *QueueService) sendBatchNotifications(ctx context.Context, userID int64, post *models.Post, friends []models.Friend) {
-	for i := 0; i < len(friends); i += CELEBRITY_BATCH_SIZE {
-		end := i + CELEBRITY_BATCH_SIZE
-		if end > len(friends) {
-			end = len(friends)
-		}
+// QueueServiceInstance глобальный экземпляр сервиса очередей
+var QueueServiceInstance *QueueService
 
-		batch := friends[i:end]
-
-		// Создаем отдельную горутину для каждого батча
-		go func(batch []models.Friend) {
-			qs.sendDirectNotifications(ctx, userID, post, batch)
-		}(batch)
-
-		// Небольшая задержка между батчами чтобы не перегружать систему
-		if i+CELEBRITY_BATCH_SIZE < len(friends) {
-			time.Sleep(10 * time.Millisecond)
-		}
-	}
+// InitQueueService инициализирует сервис очередей
+func InitQueueService() {
+	QueueServiceInstance = NewQueueService()
 }

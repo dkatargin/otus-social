@@ -31,7 +31,8 @@ type FeedEvent struct {
 func InitRabbitMQ() error {
 	url := os.Getenv("RABBITMQ_URL")
 	if url == "" {
-		url = "amqp://guest:guest@localhost:5672/"
+		// Для тестового окружения используем порт 5673
+		url = "amqp://guest:guest@localhost:5673/"
 	}
 	var err error
 	rabbitConn, err = amqp.Dial(url)
@@ -54,6 +55,7 @@ func InitRabbitMQ() error {
 	); err != nil {
 		return fmt.Errorf("failed to declare exchange: %w", err)
 	}
+	log.Printf("RabbitMQ initialized successfully with URL: %s", url)
 	return nil
 }
 

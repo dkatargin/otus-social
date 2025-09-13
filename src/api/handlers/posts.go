@@ -101,7 +101,7 @@ func RebuildUserFeed(c *gin.Context) {
 		return
 	}
 
-	err = postService.RebuildUserFeedFromDB(c.Request.Context(), userID)
+	err = postService.RebuildUserFeed(c.Request.Context(), userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to rebuild feed"})
 		return
@@ -110,7 +110,7 @@ func RebuildUserFeed(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Feed rebuilt successfully"})
 }
 
-// RebuildAllFeeds перестраивает кеши всех лент из БД (админский эндпоинт)
+// RebuildAllFeeds перестраивает кеши лент всех пользователей (админский эндпоинт)
 func RebuildAllFeeds(c *gin.Context) {
 	err := postService.RebuildAllFeeds(c.Request.Context())
 	if err != nil {
@@ -123,17 +123,16 @@ func RebuildAllFeeds(c *gin.Context) {
 
 // DeletePost удаляет пост
 func DeletePost(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
 	postIDStr := c.Param("post_id")
 	postID, err := strconv.ParseInt(postIDStr, 10, 64)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid post ID"})
-		return
-	}
-
-	// Получаем ID пользователя из контекста
-	userID, exists := c.Get("user_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 		return
 	}
 
@@ -153,14 +152,6 @@ func GetQueueStats(c *gin.Context) {
 		return
 	}
 
-	queueLength, err := services.QueueServiceInstance.GetQueueStats(c.Request.Context())
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get queue stats"})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"queue_length": queueLength,
-		"workers":      5, // QUEUE_WORKER_COUNT
-	})
+	stats := services.QueueServiceInstance.GetStats()
+	c.JSON(http.StatusOK, stats)
 }

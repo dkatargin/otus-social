@@ -35,6 +35,9 @@ func main() {
 	}
 	defer services.CloseRedis()
 
+	// Инициализируем сервис очередей
+	services.InitQueueService()
+
 	// Инициализируем RabbitMQ и запускаем push feed consumer
 	ctx := context.Background()
 	if err := services.InitRabbitMQ(); err != nil {
@@ -44,7 +47,7 @@ func main() {
 		log.Fatalf("Failed to start feed event consumer: %v", err)
 	}
 
-	// Запускаем воркеры очереди (старый Redis-based)
+	// Запускаем воркеры очереди
 	if services.QueueServiceInstance != nil {
 		services.QueueServiceInstance.StartWorkers(ctx)
 		log.Println("Queue workers started")
