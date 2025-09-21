@@ -1,9 +1,0 @@
-{
-  "TotalRequests": 100,
-  "SuccessRequests": 100,
-  "FailedRequests": 0,
-  "TotalDuration": 2408856709,
-  "RequestsPerSec": 41.51346969970392,
-  "TestName": "mixed_load_test",
-  "Timestamp": "2025-09-06T15:55:37.990735+03:00"
-}

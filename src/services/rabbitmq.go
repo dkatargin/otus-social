@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"social/config"
 	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -29,13 +30,17 @@ type FeedEvent struct {
 
 // InitRabbitMQ инициализирует соединение, exchange и очередь
 func InitRabbitMQ() error {
-	url := os.Getenv("RABBITMQ_URL")
-	if url == "" {
-		// Для тестового окружения используем порт 5673
-		url = "amqp://guest:guest@localhost:5673/"
+	var conf = config.AppConfig
+	if conf == nil {
+		return fmt.Errorf("AppConfig is nil")
+	}
+	var rabbitURL = ""
+	rabbitURL = conf.RabbitMQ.URL
+	if rabbitURL == "" {
+		rabbitURL = os.Getenv("RABBITMQ_URL")
 	}
 	var err error
-	rabbitConn, err = amqp.Dial(url)
+	rabbitConn, err = amqp.Dial(rabbitURL)
 	if err != nil {
 		return fmt.Errorf("failed to connect to RabbitMQ: %w", err)
 	}
@@ -55,7 +60,7 @@ func InitRabbitMQ() error {
 	); err != nil {
 		return fmt.Errorf("failed to declare exchange: %w", err)
 	}
-	log.Printf("RabbitMQ initialized successfully with URL: %s", url)
+	log.Printf("RabbitMQ initialized successfully with URL: %s", rabbitURL)
 	return nil
 }
 
