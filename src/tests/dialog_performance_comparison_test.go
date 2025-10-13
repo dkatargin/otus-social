@@ -118,8 +118,8 @@ func testSQLDialogs(t *testing.T, testConfig interface{}) DialogLoadTestResult {
 
 	// SQL роуты
 	api := router.Group("/api/v1")
-	api.POST("/dialog/:user_id/send", handlers.SendMessageHandler)
-	api.GET("/dialog/:user_id/list", handlers.ListDialogHandler)
+	api.POST("/dialog/:user_id/send", handlers.SendMessageInternalHandler)
+	api.GET("/dialog/:user_id/list", handlers.ListDialogInternalHandler)
 
 	// Создаем тестовых пользователей
 	for i := 1; i <= cfg.numUsers; i++ {

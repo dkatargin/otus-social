@@ -61,8 +61,8 @@ func TestDialogLoadBaseline(t *testing.T) {
 		c.Next()
 	})
 
-	r.POST("/api/v1/dialog/:user_id/send", handlers.SendMessageHandler)
-	r.GET("/api/v1/dialog/:user_id/list", handlers.ListDialogHandler)
+	r.POST("/api/v1/dialog/:user_id/send", handlers.SendMessageInternalHandler)
+	r.GET("/api/v1/dialog/:user_id/list", handlers.ListDialogInternalHandler)
 
 	// Создаем тестовых пользователей и их шарды
 	numUsers := int64(100)

@@ -38,8 +38,8 @@ func TestSendAndListDialog(t *testing.T) {
 	// Авторизация (эмулируем user_id=1) - добавляем middleware ДО роутов
 	r.Use(func(c *gin.Context) { c.Set("user_id", int64(1)); c.Next() })
 
-	r.POST("/api/v1/dialog/:user_id/send", handlers.SendMessageHandler)
-	r.GET("/api/v1/dialog/:user_id/list", handlers.ListDialogHandler)
+	r.POST("/api/v1/dialog/:user_id/send", handlers.SendMessagePublicHandler)
+	r.GET("/api/v1/dialog/:user_id/list", handlers.ListDialogPublicHandler)
 
 	// Отправка сообщения
 	msg := map[string]interface{}{"to": 2, "text": "Hello, user 2!"}
@@ -148,8 +148,8 @@ func TestDialogBasicFunctionality(t *testing.T) {
 		c.Next()
 	})
 
-	r.POST("/api/v1/dialog/:user_id/send", handlers.SendMessageHandler)
-	r.GET("/api/v1/dialog/:user_id/list", handlers.ListDialogHandler)
+	r.POST("/api/v1/dialog/:user_id/send", handlers.SendMessageInternalHandler)
+	r.GET("/api/v1/dialog/:user_id/list", handlers.ListDialogInternalHandler)
 
 	// Создаем двух тестовых пользователей
 
@@ -297,8 +297,8 @@ func TestDialogPagination(t *testing.T) {
 	// Используем новый middleware аутентификации
 	r.Use(middleware.TestAuthMiddleware())
 
-	r.POST("/api/v1/dialog/:user_id/send", handlers.SendMessageHandler)
-	r.GET("/api/v1/dialog/:user_id/list", handlers.ListDialogHandler)
+	r.POST("/api/v1/dialog/:user_id/send", handlers.SendMessageInternalHandler)
+	r.GET("/api/v1/dialog/:user_id/list", handlers.ListDialogInternalHandler)
 
 	// Отправляем несколько сообщений для создания диалога
 	for i := 1; i <= 15; i++ {
