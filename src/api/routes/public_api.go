@@ -36,8 +36,8 @@ func PublicApi(router *gin.Engine) *gin.RouterGroup {
 			authenticated.GET("feed", handlers.GetFeed)
 
 			// Диалоги
-			authenticated.POST("dialog/:user_id/send", handlers.SendMessageHandler)
-			authenticated.GET("dialog/:user_id/list", handlers.ListDialogHandler)
+			authenticated.POST("dialog/:user_id/send", handlers.SendMessagePublicHandler)
+			authenticated.GET("dialog/:user_id/list", handlers.ListDialogPublicHandler)
 		}
 
 		// Админские эндпоинты (без аутентификации для простоты)
