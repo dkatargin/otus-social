@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -371,4 +372,30 @@ func (s *RedisDialogService) Close() error {
 // GetClient возвращает Redis клиент для прямого доступа
 func (s *RedisDialogService) GetClient() *redis.Client {
 	return s.client
+}
+
+// Singleton для RedisDialogService
+var (
+	redisDialogServiceInstance *RedisDialogService
+	redisDialogServiceOnce     sync.Once
+)
+
+// GetRedisDialogService возвращает singleton инстанс RedisDialogService
+// Использует тот же Redis клиент, что и для счетчиков
+func GetRedisDialogService() *RedisDialogService {
+	redisDialogServiceOnce.Do(func() {
+		if RedisClient == nil {
+			log.Println("Warning: RedisClient is nil, RedisDialogService may not work properly")
+			return
+		}
+
+		redisDialogServiceInstance = &RedisDialogService{
+			client: RedisClient,
+			ctx:    context.Background(),
+		}
+
+		// Загружаем Lua скрипты
+		redisDialogServiceInstance.loadLuaScripts()
+	})
+	return redisDialogServiceInstance
 }

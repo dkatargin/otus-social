@@ -113,7 +113,7 @@ curl -X POST -H "Authorization: Bearer TOKEN" \
 ### Принудительная сверка
 ```bash
 curl -X POST -H "Authorization: Bearer TOKEN" \
-  http://localhost:8080/api/v1/counters/unread_messages/reconcile
+  http://localhost:8080/api/v1/counters/unread-messages/reconcile
 ```
 
 ## 📁 Структура файлов
@@ -146,7 +146,7 @@ doc/
 - **Flush interval**: 100 ms
 - **TTL в Redis**: 24 часа
 - **Reconciliation**: каждые 10 минут
-- **Consistency check**: каждую мин��ту
+- **Consistency check**: каждую минуту
 
 ## 🔍 Мониторинг
 

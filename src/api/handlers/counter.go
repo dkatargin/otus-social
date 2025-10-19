@@ -72,7 +72,7 @@ func GetCounterByType(c *gin.Context) {
 
 	counterType := services.CounterType(c.Param("type"))
 
-	// Валидация типа счетчика
+	// Ва��идация типа счетчика
 	validTypes := map[services.CounterType]bool{
 		services.CounterTypeUnreadMessages: true,
 		services.CounterTypeUnreadDialogs:  true,
@@ -245,6 +245,11 @@ func IncrementCounter(c *gin.Context) {
 
 	counterType := services.CounterType(c.Param("type"))
 
+	// Validate counterType
+	if _, ok := services.ValidTypes[counterType]; !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid counter type"})
+		return
+	}
 	var req struct {
 		Delta int64 `json:"delta" binding:"required"`
 	}
@@ -381,21 +386,22 @@ func GetDialogCounters(c *gin.Context) {
 		return
 	}
 
-	// Получаем количество непрочитанных сообщений в диалоге
-	var unreadCount int64
-	// Здесь можно добавить специальную логику для подсчета непрочитанных в конкретном диалоге
-	// Пока возвращаем общий счетчик
+	// Получаем статистику диалога из Redis
+	dialogService := services.GetRedisDialogService()
+	if dialogService == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "dialog service not available"})
+		return
+	}
 
-	counterService := services.GetCounterService()
-	unreadCount, err = counterService.GetCounter(uid, services.CounterTypeUnreadMessages)
+	stats, err := dialogService.GetDialogStats(uid, partnerID, uid)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get counter"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get dialog stats"})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"user_id":      uid,
 		"partner_id":   partnerID,
-		"unread_count": unreadCount,
+		"unread_count": stats.UnreadCount,
 	})
 }

@@ -17,7 +17,7 @@ type SagaStep struct {
 	Execute      func(ctx context.Context) error
 	Compensate   func(ctx context.Context) error
 	Executed     bool
-	CompensateOn []string // На каких ошибках компенсиров��ть
+	CompensateOn []string // На каких ошибках компенсировать
 }
 
 // Saga представляет SAGA транзакцию
@@ -96,7 +96,7 @@ func (saga *Saga) AddStep(name string, execute func(ctx context.Context) error, 
 	return saga
 }
 
-// Execute выполн��ет SAGA транзакцию
+// Execute выполняет SAGA транзакцию
 func (saga *Saga) Execute() error {
 	saga.mu.Lock()
 	defer saga.mu.Unlock()
@@ -169,7 +169,7 @@ func (s *CounterSagaService) HandleNewMessage(fromUserID, toUserID int64, text s
 				CreatedAt:  time.Now(),
 			}
 
-			if err := db.GetDB().Create(message).Error; err != nil {
+			if err := db.GetWriteDB(ctx).Create(message).Error; err != nil {
 				return fmt.Errorf("failed to save message: %w", err)
 			}
 
@@ -178,7 +178,7 @@ func (s *CounterSagaService) HandleNewMessage(fromUserID, toUserID int64, text s
 		},
 		func(ctx context.Context) error {
 			if messageID > 0 {
-				return db.GetDB().Delete(&models.Message{}, messageID).Error
+				return db.GetWriteDB(ctx).Delete(&models.Message{}, messageID).Error
 			}
 			return nil
 		},
@@ -189,7 +189,7 @@ func (s *CounterSagaService) HandleNewMessage(fromUserID, toUserID int64, text s
 		"send_notification",
 		func(ctx context.Context) error {
 			// Отправка уведомления о новом сообщении
-			// З��есь может быть интеграция с системой уведомлений
+			// Здесь может быть интеграция с системой уведомлений
 			log.Printf("Notification sent: new message from %d to %d", fromUserID, toUserID)
 			return nil
 		},
@@ -202,7 +202,7 @@ func (s *CounterSagaService) HandleNewMessage(fromUserID, toUserID int64, text s
 	return saga.Execute()
 }
 
-// HandleMarkAsRead обрабатывает отметку сообщений ��ак прочитанных с использованием SAGA
+// HandleMarkAsRead обрабатывает отметку сообщений как прочитанных с использованием SAGA
 func (s *CounterSagaService) HandleMarkAsRead(userID, dialogPartnerID int64) error {
 	sagaID := fmt.Sprintf("mark_read_%d_%d_%d", userID, dialogPartnerID, time.Now().UnixNano())
 	saga := s.NewSaga(sagaID)
@@ -215,7 +215,7 @@ func (s *CounterSagaService) HandleMarkAsRead(userID, dialogPartnerID int64) err
 		"count_unread_messages",
 		func(ctx context.Context) error {
 			var count int64
-			err := db.ORM.Model(&models.Message{}).
+			err := db.GetReadOnlyDB(ctx).Model(&models.Message{}).
 				Where("to_user_id = ? AND from_user_id = ? AND is_read = false", userID, dialogPartnerID).
 				Count(&count).Error
 
@@ -280,20 +280,20 @@ func (s *CounterSagaService) ReconcileCounter(userID int64, counterType CounterT
 
 	switch counterType {
 	case CounterTypeUnreadMessages:
-		err = db.GetDB().Model(&models.Message{}).
+		err = db.GetWriteDB(s.ctx).Model(&models.Message{}).
 			Where("to_user_id = ? AND is_read = false", userID).
 			Count(&actualCount).Error
 
 	case CounterTypeUnreadDialogs:
 		// Подсчитываем количество диалогов с непрочитанными сообщениями
-		err = db.GetDB().Model(&models.Message{}).
+		err = db.GetWriteDB(s.ctx).Model(&models.Message{}).
 			Select("COUNT(DISTINCT from_user_id)").
 			Where("to_user_id = ? AND is_read = false", userID).
 			Scan(&actualCount).Error
 
 	case CounterTypeFriendRequests:
 		// Подсчитываем количество запросов в друзья
-		err = db.GetDB().Model(&models.Friend{}).
+		err = db.GetWriteDB(s.ctx).Model(&models.Friend{}).
 			Where("user_id = ? AND status = ?", userID, "pending").
 			Count(&actualCount).Error
 
@@ -380,7 +380,7 @@ func (s *CounterSagaService) runConsistencyChecker() {
 
 // checkAndFixInconsistencies проверяет и исправляет несоответствия
 func (s *CounterSagaService) checkAndFixInconsistencies() {
-	// Находим пользователей с возможн��ми несоответствиями
+	// Находим пользователей с возможными несоответствиями
 	// Это упрощенная версия - в продакшене можно использовать более сложные эвристики
 
 	var results []struct {
@@ -388,7 +388,7 @@ func (s *CounterSagaService) checkAndFixInconsistencies() {
 		ActualCount int64
 	}
 
-	err := db.GetDB().Model(&models.Message{}).
+	err := db.GetWriteDB(s.ctx).Model(&models.Message{}).
 		Select("to_user_id as user_id, COUNT(*) as actual_count").
 		Where("is_read = false").
 		Where("created_at > ?", time.Now().Add(-24*time.Hour)).

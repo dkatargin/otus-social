@@ -162,7 +162,7 @@ func SendMessageInternalHandler(c *gin.Context) {
 		return
 	}
 
-	// Определяем шард на основе пары пользоват��лей
+	// Определяем шард на основе пары пользователей
 	shardID := getShardID(fromUserID, toUserID)
 	tableName := "messages_" + strconv.Itoa(shardID)
 

@@ -22,6 +22,13 @@ const (
 	CounterTypeNotifications  CounterType = "notifications"
 )
 
+var ValidTypes = map[CounterType]bool{
+	CounterTypeUnreadMessages: true,
+	CounterTypeUnreadDialogs:  true,
+	CounterTypeFriendRequests: true,
+	CounterTypeNotifications:  true,
+}
+
 // Counter представляет счетчик для пользователя
 type Counter struct {
 	UserID    int64       `json:"user_id"`
@@ -112,7 +119,7 @@ var (
 		
 		-- Оптимистичная блокировка
 		if version > 0 and current_version ~= version then
-			return {err = "version_mismatch"}
+			return redis.error_reply{"version_mismatch"}
 		end
 		
 		local new_count = math.max(0, current_count + delta)
@@ -381,14 +388,16 @@ func (s *CounterService) flushBatch(batch []*CounterUpdate) {
 	}
 
 	timestamp := time.Now().Unix()
+	keys := make([]string, 0, len(batch))
 	args := []interface{}{timestamp}
 
 	for _, update := range batch {
 		key := s.getCounterKey(update.UserID, update.Type)
-		args = append(args, key, update.Delta)
+		keys = append(keys, key)
+		args = append(args, update.Delta)
 	}
 
-	_, err := s.redisClient.EvalSha(s.ctx, batchIncrementSHA, []string{}, args...).Result()
+	_, err := s.redisClient.EvalSha(s.ctx, batchIncrementSHA, keys, args...).Result()
 	if err != nil {
 		log.Printf("Error flushing batch: %v", err)
 		// Fallback на синхронные обновления
