@@ -154,7 +154,15 @@ func SendMessageInternalHandler(c *gin.Context) {
 	fromUserID := req.From
 	toUserID := req.To
 
-	// Определяем шард на основе пары пользователей
+	// Используем SAGA для обеспечения консистентности счетчиков
+	sagaService := services.GetCounterSagaService()
+	if err := sagaService.HandleNewMessage(fromUserID, toUserID, req.Text); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{})
+		log.Printf("DIALOG: reqId %s; SAGA failed =%v+", req.RequestID, err)
+		return
+	}
+
+	// Определяем шард на основе пары пользоват��лей
 	shardID := getShardID(fromUserID, toUserID)
 	tableName := "messages_" + strconv.Itoa(shardID)
 
@@ -171,6 +179,17 @@ func SendMessageInternalHandler(c *gin.Context) {
 		log.Printf("DIALOG: reqId %s; failed to send message =%v+", req.RequestID, err)
 		return
 	}
+
+	// Увеличиваем счетчик непрочитанных диалогов (асинхронно)
+	counterService := services.GetCounterService()
+	go func() {
+		_ = counterService.IncrementCounter(toUserID, services.CounterTypeUnreadDialogs, 1)
+	}()
+
+	// Отправляем WebSocket уведомление получателю
+	go func() {
+		_ = services.SendWsNotify(toUserID, "new_message", fmt.Sprintf("New message from user %d", fromUserID))
+	}()
 
 	c.JSON(http.StatusOK, gin.H{})
 }
@@ -338,4 +357,32 @@ func ReshardUserHandler(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "User reassigned to new shard"})
+}
+
+// MarkDialogAsReadHandler - отметка всех сообщений в диалог�� как прочитанных
+func MarkDialogAsReadHandler(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	otherUserIDStr := c.Param("user_id")
+	otherUserID, err := strconv.ParseInt(otherUserIDStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user_id"})
+		return
+	}
+
+	uid := userID.(int64)
+
+	// Используем SAGA для обеспечения консистентности
+	sagaService := services.GetCounterSagaService()
+	if err := sagaService.HandleMarkAsRead(uid, otherUserID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to mark messages as read"})
+		log.Printf("DIALOG: Failed to mark as read for user %d, partner %d: %v", uid, otherUserID, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Messages marked as read"})
 }
