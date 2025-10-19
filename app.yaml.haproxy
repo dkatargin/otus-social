@@ -1,0 +1,29 @@
+backend:
+  listen_port: 8080
+  bind_host: 0.0.0.0
+  dialog_service_url: "http://dialogs:8080"
+
+redis:
+  host: "redis"
+  port: 6379
+  password: ""
+  db: 0
+
+db:
+  master:
+    host: haproxy
+    port: 5432
+    user: app_user
+    password: app_password
+    dbname: app_db
+  replicas:
+    - host: haproxy
+      port: 5433
+      user: app_user
+      password: app_password
+      dbname: app_db
+
+logs:
+  level: debug
+  sentry_sdk: xxxxx
+
