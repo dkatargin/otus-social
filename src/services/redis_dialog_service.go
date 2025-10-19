@@ -377,25 +377,39 @@ func (s *RedisDialogService) GetClient() *redis.Client {
 // Singleton для RedisDialogService
 var (
 	redisDialogServiceInstance *RedisDialogService
-	redisDialogServiceOnce     sync.Once
+	redisDialogServiceMutex    sync.Mutex
 )
 
 // GetRedisDialogService возвращает singleton инстанс RedisDialogService
 // Использует тот же Redis клиент, что и для счетчиков
 func GetRedisDialogService() *RedisDialogService {
-	redisDialogServiceOnce.Do(func() {
-		if RedisClient == nil {
-			log.Println("Warning: RedisClient is nil, RedisDialogService may not work properly")
-			return
-		}
+	redisDialogServiceMutex.Lock()
+	defer redisDialogServiceMutex.Unlock()
 
+	if redisDialogServiceInstance == nil {
+		log.Println("Warning: RedisDialogService not initialized, call InitRedisDialogService first")
+		return nil
+	}
+
+	return redisDialogServiceInstance
+}
+
+// InitRedisDialogService инициализирует сервис после создания RedisClient
+func InitRedisDialogService() error {
+	redisDialogServiceMutex.Lock()
+	defer redisDialogServiceMutex.Unlock()
+
+	if RedisClient == nil {
+		return fmt.Errorf("RedisClient must be initialized first")
+	}
+
+	if redisDialogServiceInstance == nil {
 		redisDialogServiceInstance = &RedisDialogService{
 			client: RedisClient,
 			ctx:    context.Background(),
 		}
-
-		// Загружаем Lua скрипты
 		redisDialogServiceInstance.loadLuaScripts()
-	})
-	return redisDialogServiceInstance
+	}
+
+	return nil
 }

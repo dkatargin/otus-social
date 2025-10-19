@@ -55,7 +55,6 @@ type CounterUpdate struct {
 	UserID int64
 	Type   CounterType
 	Delta  int64
-	Done   chan error
 }
 
 // SagaCompensation представляет компенсирующую транзакцию
@@ -119,7 +118,7 @@ var (
 		
 		-- Оптимистичная блокировка
 		if version > 0 and current_version ~= version then
-			return redis.error_reply{"version_mismatch"}
+			return redis.error_reply('version_mismatch')
 		end
 		
 		local new_count = math.max(0, current_count + delta)
@@ -151,11 +150,11 @@ var (
 
 	batchIncrementScript = `
 		local results = {}
-		local timestamp = tonumber(ARGV[1])
+		local timestamp = tonumber(KEYS[1])
 		
-		for i = 2, #ARGV, 2 do
-			local key = ARGV[i]
-			local delta = tonumber(ARGV[i + 1])
+		for i = 2, #KEYS, 2 do
+			local key = KEYS[i]
+			local delta = tonumber(KEYS[i + 1])
 			
 			local counter = redis.call('GET', key)
 			local current_count = 0
@@ -310,7 +309,6 @@ func (s *CounterService) IncrementCounter(userID int64, counterType CounterType,
 		UserID: userID,
 		Type:   counterType,
 		Delta:  delta,
-		Done:   make(chan error, 1),
 	}
 
 	select {

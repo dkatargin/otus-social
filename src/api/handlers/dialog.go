@@ -182,9 +182,14 @@ func SendMessageInternalHandler(c *gin.Context) {
 
 	// Увеличиваем счетчик непрочитанных диалогов (асинхронно)
 	counterService := services.GetCounterService()
-	go func() {
-		_ = counterService.IncrementCounter(toUserID, services.CounterTypeUnreadDialogs, 1)
-	}()
+	dialogService := services.GetRedisDialogService()
+	go func(fromUserID int64, toUserID int64) {
+		// Check if this is the first unread message in the dialog
+		stats, err := dialogService.GetDialogStats(fromUserID, toUserID, fromUserID)
+		if err == nil && stats.UnreadCount == 0 {
+			_ = counterService.IncrementCounter(toUserID, services.CounterTypeUnreadDialogs, 1)
+		}
+	}(fromUserID, toUserID)
 
 	// Отправляем WebSocket уведомление получателю
 	go func() {

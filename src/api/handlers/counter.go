@@ -72,7 +72,7 @@ func GetCounterByType(c *gin.Context) {
 
 	counterType := services.CounterType(c.Param("type"))
 
-	// Ва��идация типа счетчика
+	// Валидация типа счетчика
 	validTypes := map[services.CounterType]bool{
 		services.CounterTypeUnreadMessages: true,
 		services.CounterTypeUnreadDialogs:  true,
@@ -127,6 +127,18 @@ func ResetCounter(c *gin.Context) {
 
 	counterType := services.CounterType(c.Param("type"))
 
+	// Валидация типа счетчика
+	validTypes := map[services.CounterType]bool{
+		services.CounterTypeUnreadMessages: true,
+		services.CounterTypeUnreadDialogs:  true,
+		services.CounterTypeFriendRequests: true,
+		services.CounterTypeNotifications:  true,
+	}
+
+	if !validTypes[counterType] {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid counter type"})
+		return
+	}
 	counterService := services.GetCounterService()
 	if err := counterService.ResetCounter(uid, counterType); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to reset counter"})
