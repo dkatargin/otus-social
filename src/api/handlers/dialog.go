@@ -113,11 +113,24 @@ func SendMessagePublicHandler(c *gin.Context) {
 			Text: req.Text,
 		}
 		client := &http.Client{Timeout: 10 * time.Second}
-		reqBody, _ := json.Marshal(internalReq)
+		reqBody, err := json.Marshal(internalReq)
+		if err != nil {
+			log.Printf("DIALOG: failed to marshal internalReq: %v", err)
+			_ = services.SendWsNotify(fromUserID.(int64), "internal_error",
+				fmt.Sprintf("Failed to send message. ReqId=%s", internalReq.RequestID))
+			return
+		}
 		// отправляем запрос в сервис диалогов
-		httpReq, _ := http.NewRequest("POST", fmt.Sprintf("%s/v1/messages/send", config.AppConfig.DialogServiceURL), bytes.NewBuffer(reqBody))
+		httpReq, err := http.NewRequest("POST", fmt.Sprintf("%s/v1/messages/send", config.AppConfig.DialogServiceURL), bytes.NewBuffer(reqBody))
+		if err != nil {
+			_ = services.SendWsNotify(fromUserID.(int64), "internal_error",
+				fmt.Sprintf("Failed to create request. ReqId=%s: %v",
+					internalReq.RequestID, err))
+			log.Printf("DIALOG: failed to create http request: %v+", err)
+			return
+		}
 		httpReq.Header.Set("Content-Type", "application/json")
-		_, err := client.Do(httpReq)
+		_, err = client.Do(httpReq)
 		if err != nil {
 			// при ошибке показываем пользователю уведомление
 			_ = services.SendWsNotify(fromUserID.(int64), "internal_error",
@@ -201,8 +214,12 @@ func ListDialogPublicHandler(c *gin.Context) {
 	}
 	client := &http.Client{Timeout: 10 * time.Second}
 	reqBody, _ := json.Marshal(internalReq)
-	httpReq, _ := http.NewRequest("POST", fmt.Sprintf("%s/v1/messages/list/%d",
+	httpReq, err := http.NewRequest("POST", fmt.Sprintf("%s/v1/messages/list/%d",
 		config.AppConfig.DialogServiceURL, otherUserID), bytes.NewBuffer(reqBody))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal error"})
+		return
+	}
 	httpReq.Header.Set("Content-Type", "application/json")
 	_, err = client.Do(httpReq)
 	if err != nil {
