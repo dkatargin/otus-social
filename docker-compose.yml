@@ -174,6 +174,31 @@ services:
     networks:
       - otus
 
+  dialogs:
+    build:
+      context: ./src
+      dockerfile: dialogs.Dockerfile
+    environment:
+      - GIN_MODE=release
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+    volumes:
+      - ./app.yaml:/app/config.yaml
+    ports:
+      - "8081:8080"
+    depends_on:
+      postgres-master:
+        condition: service_healthy
+      postgres-slave-1:
+        condition: service_healthy
+      postgres-slave-2:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - otus
+
 networks:
   otus:
     driver: bridge

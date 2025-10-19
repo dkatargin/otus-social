@@ -26,7 +26,7 @@ type RedisSendMessageRequest struct {
 	Text string `json:"text" binding:"required"`
 }
 
-// SendMessageHandler - отправка сообщения через Redis с UDF
+// SendMessageInternalHandler - отправка сообщения через Redis с UDF
 func (h *RedisDialogHandlers) SendMessageHandler(c *gin.Context) {
 	fromUserID, exists := c.Get("user_id")
 	if !exists {
@@ -62,7 +62,7 @@ func (h *RedisDialogHandlers) SendMessageHandler(c *gin.Context) {
 	})
 }
 
-// ListDialogHandler - получение сообщений диалога через Redis
+// ListDialogInternalHandler - получение сообщений диалога через Redis
 func (h *RedisDialogHandlers) ListDialogHandler(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
