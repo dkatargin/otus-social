@@ -35,6 +35,10 @@ func main() {
 	}
 	defer services.CloseRedis()
 
+	if err := services.InitRedisDialogService(); err != nil {
+		log.Fatalf("Failed to init RedisDialogService: %v", err)
+	}
+
 	// Инициализируем сервис очередей
 	services.InitQueueService()
 

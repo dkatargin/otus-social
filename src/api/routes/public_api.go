@@ -38,6 +38,18 @@ func PublicApi(router *gin.Engine) *gin.RouterGroup {
 			// Диалоги
 			authenticated.POST("dialog/:user_id/send", handlers.SendMessagePublicHandler)
 			authenticated.GET("dialog/:user_id/list", handlers.ListDialogPublicHandler)
+			authenticated.POST("dialog/:user_id/read", handlers.MarkDialogAsReadHandler)
+
+			// Счетчики
+			authenticated.GET("counters", handlers.GetCounters)
+			authenticated.GET("counters/stats", handlers.GetCounterStats)
+			authenticated.GET("counters/unread-messages", handlers.GetUnreadMessagesCount)
+			authenticated.GET("counters/:type", handlers.GetCounterByType)
+			authenticated.POST("counters/:type/reset", handlers.ResetCounter)
+			authenticated.POST("counters/:type/reconcile", handlers.ReconcileCounter)
+			authenticated.POST("counters/:type/increment", handlers.IncrementCounter)
+			authenticated.GET("counters/dialogs/:user_id", handlers.GetDialogCounters)
+			authenticated.POST("counters/batch", handlers.GetBatchCounters)
 		}
 
 		// Админские эндпоинты (без аутентификации для простоты)

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -371,4 +372,44 @@ func (s *RedisDialogService) Close() error {
 // GetClient возвращает Redis клиент для прямого доступа
 func (s *RedisDialogService) GetClient() *redis.Client {
 	return s.client
+}
+
+// Singleton для RedisDialogService
+var (
+	redisDialogServiceInstance *RedisDialogService
+	redisDialogServiceMutex    sync.Mutex
+)
+
+// GetRedisDialogService возвращает singleton инстанс RedisDialogService
+// Использует тот же Redis клиент, что и для счетчиков
+func GetRedisDialogService() *RedisDialogService {
+	redisDialogServiceMutex.Lock()
+	defer redisDialogServiceMutex.Unlock()
+
+	if redisDialogServiceInstance == nil {
+		log.Println("Warning: RedisDialogService not initialized, call InitRedisDialogService first")
+		return nil
+	}
+
+	return redisDialogServiceInstance
+}
+
+// InitRedisDialogService инициализирует сервис после создания RedisClient
+func InitRedisDialogService() error {
+	redisDialogServiceMutex.Lock()
+	defer redisDialogServiceMutex.Unlock()
+
+	if RedisClient == nil {
+		return fmt.Errorf("RedisClient must be initialized first")
+	}
+
+	if redisDialogServiceInstance == nil {
+		redisDialogServiceInstance = &RedisDialogService{
+			client: RedisClient,
+			ctx:    context.Background(),
+		}
+		redisDialogServiceInstance.loadLuaScripts()
+	}
+
+	return nil
 }
