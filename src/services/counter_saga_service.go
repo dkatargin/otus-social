@@ -17,22 +17,7 @@ type SagaStep struct {
 	Execute      func(ctx context.Context) error
 	Compensate   func(ctx context.Context) error
 	Executed     bool
-	CompensateOn []string // На каких ошибках компенсировать
 }
-
-// shouldCompensate determines if the error matches any of the error strings in CompensateOn.
-func (step *SagaStep) shouldCompensate(err error) bool {
-	if err == nil {
-		return false
-	}
-	for _, s := range step.CompensateOn {
-		if s != "" && s == err.Error() {
-			return true
-		}
-	}
-	return false
-}
-
 // Saga представляет SAGA транзакцию
 type Saga struct {
 	ID            string
