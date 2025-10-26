@@ -388,14 +388,22 @@ func (s *RedisDialogService) GetDialogStats(user1, user2, forUserID int64) (*Dia
 
 	data := result.([]interface{})
 
-	totalMessages, _ := strconv.ParseInt(data[0].(string), 10, 64)
-	unreadCount, _ := strconv.ParseInt(data[1].(string), 10, 64)
-	lastActivity, _ := strconv.ParseInt(data[2].(string), 10, 64)
+	parseValue := func(val interface{}) int64 {
+		switch v := val.(type) {
+		case int64:
+			return v
+		case string:
+			i, _ := strconv.ParseInt(v, 10, 64)
+			return i
+		default:
+			return 0
+		}
+	}
 
 	return &DialogStats{
-		TotalMessages: totalMessages,
-		UnreadCount:   unreadCount,
-		LastActivity:  lastActivity,
+		TotalMessages: parseValue(data[0]),
+		UnreadCount:   parseValue(data[1]),
+		LastActivity:  parseValue(data[2]),
 	}, nil
 }
 
