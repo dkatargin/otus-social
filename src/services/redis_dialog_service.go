@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"social/api/middleware"
 	"strconv"
 	"sync"
 	"time"
@@ -277,6 +278,7 @@ func (s *RedisDialogService) getStatsKey(user1, user2 int64) string {
 
 // SendMessage отправляет сообщение с использованием UDF
 func (s *RedisDialogService) SendMessage(fromUserID, toUserID int64, text string) (*RedisMessage, error) {
+	start := time.Now()
 	dialogKey := s.getDialogKey(fromUserID, toUserID)
 	unreadKey := s.getUnreadKey(fromUserID, toUserID)
 	statsKey := s.getStatsKey(fromUserID, toUserID)
@@ -286,6 +288,13 @@ func (s *RedisDialogService) SendMessage(fromUserID, toUserID int64, text string
 
 	result, err := s.client.EvalSha(s.ctx, sendMessageSHA, []string{dialogKey, unreadKey, statsKey},
 		messageID, fromUserID, toUserID, text, now.Unix()).Result()
+
+	duration := time.Since(start)
+	status := "success"
+	if err != nil {
+		status = "error"
+	}
+	middleware.RecordDialogOperation("send_message", status, "dialogs", duration, err)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to send message: %v", err)
@@ -303,9 +312,18 @@ func (s *RedisDialogService) SendMessage(fromUserID, toUserID int64, text string
 
 // GetMessages получает сообщения диалога с пагинацией
 func (s *RedisDialogService) GetMessages(user1, user2 int64, offset, limit int) ([]*RedisMessage, error) {
+	start := time.Now()
 	dialogKey := s.getDialogKey(user1, user2)
 
 	result, err := s.client.EvalSha(s.ctx, getMessagesSHA, []string{dialogKey}, offset, limit).Result()
+
+	duration := time.Since(start)
+	status := "success"
+	if err != nil {
+		status = "error"
+	}
+	middleware.RecordDialogOperation("get_messages", status, "dialogs", duration, err)
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to get messages: %v", err)
 	}
@@ -327,11 +345,19 @@ func (s *RedisDialogService) GetMessages(user1, user2 int64, offset, limit int) 
 
 // MarkAsRead отмечает сообщения как прочитанные
 func (s *RedisDialogService) MarkAsRead(user1, user2, readerUserID int64) (int, error) {
+	start := time.Now()
 	dialogKey := s.getDialogKey(user1, user2)
 	unreadKey := s.getUnreadKey(user1, user2)
 
 	result, err := s.client.EvalSha(s.ctx, markAsReadSHA, []string{dialogKey, unreadKey},
 		readerUserID, time.Now().Unix()).Result()
+
+	duration := time.Since(start)
+	status := "success"
+	if err != nil {
+		status = "error"
+	}
+	middleware.RecordDialogOperation("mark_as_read", status, "dialogs", duration, err)
 
 	if err != nil {
 		return 0, fmt.Errorf("failed to mark as read: %v", err)
@@ -343,24 +369,41 @@ func (s *RedisDialogService) MarkAsRead(user1, user2, readerUserID int64) (int, 
 
 // GetDialogStats получает статистику диалога
 func (s *RedisDialogService) GetDialogStats(user1, user2, forUserID int64) (*DialogStats, error) {
+	start := time.Now()
 	statsKey := s.getStatsKey(user1, user2)
 	unreadKey := s.getUnreadKey(user1, user2)
 
 	result, err := s.client.EvalSha(s.ctx, getStatsSHA, []string{statsKey, unreadKey}, forUserID).Result()
+
+	duration := time.Since(start)
+	status := "success"
+	if err != nil {
+		status = "error"
+	}
+	middleware.RecordDialogOperation("get_stats", status, "dialogs", duration, err)
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to get stats: %v", err)
 	}
 
 	data := result.([]interface{})
 
-	totalMessages, _ := strconv.ParseInt(data[0].(string), 10, 64)
-	unreadCount, _ := strconv.ParseInt(data[1].(string), 10, 64)
-	lastActivity, _ := strconv.ParseInt(data[2].(string), 10, 64)
+	parseValue := func(val interface{}) int64 {
+		switch v := val.(type) {
+		case int64:
+			return v
+		case string:
+			i, _ := strconv.ParseInt(v, 10, 64)
+			return i
+		default:
+			return 0
+		}
+	}
 
 	return &DialogStats{
-		TotalMessages: totalMessages,
-		UnreadCount:   unreadCount,
-		LastActivity:  lastActivity,
+		TotalMessages: parseValue(data[0]),
+		UnreadCount:   parseValue(data[1]),
+		LastActivity:  parseValue(data[2]),
 	}, nil
 }
 

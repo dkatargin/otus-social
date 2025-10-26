@@ -1,0 +1,48 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'otus-social'
+    environment: 'production'
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'dialogs-service'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: 
+          - 'dialogs-1:8080'
+          - 'dialogs-2:8080'
+        labels:
+          service: 'dialogs'
+
+  - job_name: 'backend-service'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets:
+          - 'backend-1:8080'
+          - 'backend-2:8080'
+          - 'backend-3:8080'
+        labels:
+          service: 'backend'
+
+  - job_name: 'haproxy'
+    static_configs:
+      - targets: ['haproxy:8404']
+        labels:
+          service: 'haproxy'
+
+  - job_name: 'nginx'
+    static_configs:
+      - targets: ['nginx-exporter:9113']
+        labels:
+          service: 'nginx'
+
+  - job_name: 'rabbitmq'
+    static_configs:
+      - targets: ['rabbitmq:15692']
+        labels:
+          service: 'rabbitmq'
