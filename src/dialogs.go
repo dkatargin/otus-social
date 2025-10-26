@@ -2,18 +2,27 @@ package main
 
 import (
 	"log"
+	"social/api/middleware"
 	"social/api/routes"
+	"social/config"
 	"social/services"
 
 	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 func main() {
+
+	// Загружаем конфигурацию
+	if err := config.LoadConfig("config.yaml"); err != nil {
+		log.Fatalf("Failed to load config: %v", err)
+	}
 
 	router := gin.Default()
 
 	router.Use(gin.Logger())
 	router.Use(gin.Recovery())
+	router.Use(middleware.PrometheusMiddleware("dialogs"))
 
 	// Инициализируем Redis
 	err := services.InitRedis()
@@ -29,6 +38,8 @@ func main() {
 	if err := services.InitRedisDialogService(); err != nil {
 		log.Fatalf("Failed to init RedisDialogService: %v", err)
 	}
+
+	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
 	routes.DialogInternalApi(router)
 

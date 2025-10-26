@@ -9,32 +9,33 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// RedisDialogHandlers содержит обработчики для Redis-диалогов
 type RedisDialogHandlers struct {
 	redisService *services.RedisDialogService
 }
 
-// NewRedisDialogHandlers создает новый экземпляр обработчиков Redis-диалогов
 func NewRedisDialogHandlers(redisService *services.RedisDialogService) *RedisDialogHandlers {
 	return &RedisDialogHandlers{
 		redisService: redisService,
 	}
 }
 
-// RedisSendMessageRequest структура для запроса отправки сообщения через Redis
 type RedisSendMessageRequest struct {
 	Text string `json:"text" binding:"required"`
 }
 
-// SendMessageInternalHandler - отправка сообщения через Redis с UDF
 func (h *RedisDialogHandlers) SendMessageHandler(c *gin.Context) {
-	fromUserID, exists := c.Get("user_id")
+	fromUserIDStr, exists := c.Get("user_id")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 		return
 	}
 
-	// Парсим ID получателя из URL
+	fromUserID, err := strconv.ParseInt(fromUserIDStr.(string), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid from user_id"})
+		return
+	}
+
 	toUserIDStr := c.Param("user_id")
 	toUserID, err := strconv.ParseInt(toUserIDStr, 10, 64)
 	if err != nil {
@@ -42,15 +43,13 @@ func (h *RedisDialogHandlers) SendMessageHandler(c *gin.Context) {
 		return
 	}
 
-	// Парсим тело запроса
 	var req RedisSendMessageRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
 		return
 	}
 
-	// Отправляем сообщение через Redis UDF
-	message, err := h.redisService.SendMessage(fromUserID.(int64), toUserID, req.Text)
+	message, err := h.redisService.SendMessage(fromUserID, toUserID, req.Text)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send message"})
 		return
@@ -62,11 +61,16 @@ func (h *RedisDialogHandlers) SendMessageHandler(c *gin.Context) {
 	})
 }
 
-// ListDialogInternalHandler - получение сообщений диалога через Redis
 func (h *RedisDialogHandlers) ListDialogHandler(c *gin.Context) {
-	userID, exists := c.Get("user_id")
+	userIDStr, exists := c.Get("user_id")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	userID, err := strconv.ParseInt(userIDStr.(string), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid from user_id"})
 		return
 	}
 
@@ -77,7 +81,6 @@ func (h *RedisDialogHandlers) ListDialogHandler(c *gin.Context) {
 		return
 	}
 
-	// Парсим параметры пагинации
 	limitStr := c.DefaultQuery("limit", "50")
 	offsetStr := c.DefaultQuery("offset", "0")
 
@@ -86,7 +89,7 @@ func (h *RedisDialogHandlers) ListDialogHandler(c *gin.Context) {
 		limit = 50
 	}
 	if limit > 100 {
-		limit = 100 // Ограничиваем максимальный размер страницы
+		limit = 100
 	}
 
 	offset, err := strconv.Atoi(offsetStr)
@@ -94,8 +97,7 @@ func (h *RedisDialogHandlers) ListDialogHandler(c *gin.Context) {
 		offset = 0
 	}
 
-	// Получаем сообщения через Redis UDF
-	messages, err := h.redisService.GetMessages(userID.(int64), otherUserID, offset, limit)
+	messages, err := h.redisService.GetMessages(userID, otherUserID, offset, limit)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve messages"})
 		return
@@ -104,11 +106,16 @@ func (h *RedisDialogHandlers) ListDialogHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"messages": messages})
 }
 
-// GetDialogStatsHandler - получение статистики диалога через Redis
 func (h *RedisDialogHandlers) GetDialogStatsHandler(c *gin.Context) {
-	userID, exists := c.Get("user_id")
+	userIDStr, exists := c.Get("user_id")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	userID, err := strconv.ParseInt(userIDStr.(string), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid from user_id"})
 		return
 	}
 
@@ -119,8 +126,7 @@ func (h *RedisDialogHandlers) GetDialogStatsHandler(c *gin.Context) {
 		return
 	}
 
-	// Получаем статистику через Redis UDF
-	stats, err := h.redisService.GetDialogStats(userID.(int64), otherUserID, userID.(int64))
+	stats, err := h.redisService.GetDialogStats(userID, otherUserID, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get dialog stats"})
 		return
@@ -132,11 +138,16 @@ func (h *RedisDialogHandlers) GetDialogStatsHandler(c *gin.Context) {
 	})
 }
 
-// MarkAsReadHandler - отметка сообщений как прочитанных через Redis
 func (h *RedisDialogHandlers) MarkAsReadHandler(c *gin.Context) {
-	userID, exists := c.Get("user_id")
+	userIDStr, exists := c.Get("user_id")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	userID, err := strconv.ParseInt(userIDStr.(string), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid from user_id"})
 		return
 	}
 
@@ -147,8 +158,7 @@ func (h *RedisDialogHandlers) MarkAsReadHandler(c *gin.Context) {
 		return
 	}
 
-	// Отмечаем сообщения как прочитанные через Redis UDF
-	count, err := h.redisService.MarkAsRead(userID.(int64), otherUserID, userID.(int64))
+	count, err := h.redisService.MarkAsRead(userID, otherUserID, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to mark messages as read"})
 		return
